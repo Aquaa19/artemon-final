@@ -4,6 +4,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
+import { getFunctions } from "firebase/functions"; // Added for OTP logic
 
 // Your real Firebase configuration
 const firebaseConfig = {
@@ -19,12 +20,17 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Analytics (Optional, but included since it was in your config)
+// Initialize Analytics
 const analytics = getAnalytics(app);
 
-// Initialize and export services for use throughout Artemon Joy
+// Initialize and export services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+/** * IMPORTANT: Specify the region 'asia-south1' to match 
+ * your Firestore and Functions deployment.
+ */
+export const functions = getFunctions(app, 'asia-south1'); 
 
 export default app;

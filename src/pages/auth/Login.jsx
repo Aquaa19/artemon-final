@@ -1,129 +1,117 @@
 // Filename: src/pages/auth/Login.jsx
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Mail, Lock, ArrowRight, Loader } from 'lucide-react';
+import { Mail, Lock, LogIn, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect after login (to where they were going, or shop)
+  const from = location.state?.from || '/shop';
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
+    setError('');
 
     try {
-      const userData = await login(email, password);
-      
-      if (userData.role === 'admin') {
-        navigate('/admin'); 
-      } else {
-        navigate('/');      
-      }
-      
+      await login(email, password);
+      navigate(from, { replace: true });
     } catch (err) {
-      setError(err.message || 'Failed to sign in');
+      console.error("Login error:", err);
+      // Firebase specific error mapping
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError('Invalid email or password.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Account temporarily locked due to many failed attempts. Try later.');
+      } else {
+        setError('Failed to log in. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      
-      {/* CHANGED: Removed bg-white, p-10, shadow-xl, border classes */}
-      <div className="max-w-md w-full space-y-8">
-        
-        <div className="text-center">
-          <img 
-            src="/artemon_joy_logo.png" 
-            alt="Artemon Joy" 
-            className="mx-auto h-16 w-16 rounded-full object-cover mb-4 border-4 border-white shadow-md" 
-          />
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Welcome Back!
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Please sign in to your account
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 pt-20">
+      <div className="max-w-md w-full">
+        {/* Branding */}
+        <div className="text-center mb-10">
+          <div className="inline-flex p-3 rounded-2xl bg-indigo-600 text-white shadow-lg mb-4">
+            <Sparkles className="w-8 h-8" />
+          </div>
+          <h1 className="text-4xl font-black text-gray-900">Welcome Back!</h1>
+          <p className="text-gray-500 mt-2">Log in to your Artemon Joy account</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow-sm">
-             <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100">
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm font-bold rounded-2xl flex items-center gap-2 animate-shake">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" /> {error}
+            </div>
+          )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4"> {/* Separated inputs slightly more */}
-            
-            {/* Email Input */}
-            <div className="relative shadow-sm rounded-xl">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-1">
+              <label className="text-sm font-bold text-gray-700 ml-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input 
+                  required 
+                  type="email" 
+                  placeholder="hello@example.com" 
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                />
               </div>
-              <input
-                type="email"
-                required
-                // ADDED: bg-white to ensure it stands out
-                className="appearance-none rounded-xl relative block w-full pl-10 px-3 py-3 border border-gray-300 bg-white placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
             </div>
 
-            {/* Password Input */}
-            <div className="relative shadow-sm rounded-xl">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
+            <div className="space-y-1">
+              <div className="flex justify-between items-center ml-1">
+                <label className="text-sm font-bold text-gray-700">Password</label>
+                <Link to="/forgot-password" size="sm" className="text-xs font-bold text-indigo-600 hover:underline">
+                  Forgot?
+                </Link>
               </div>
-              <input
-                type="password"
-                required
-                // ADDED: bg-white
-                className="appearance-none rounded-xl relative block w-full pl-10 px-3 py-3 border border-gray-300 bg-white placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input 
+                  required 
+                  type="password" 
+                  placeholder="••••••••" 
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <button
+            <button 
+              disabled={loading} 
               type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/30"
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
             >
               {loading ? (
-                 <Loader className="animate-spin h-5 w-5" />
+                <Loader2 className="animate-spin w-5 h-5" />
               ) : (
-                 <>
-                   Sign in
-                   <span className="absolute right-0 inset-y-0 flex items-center pr-3">
-                     <ArrowRight className="h-5 w-5 text-indigo-500 group-hover:text-indigo-400" />
-                   </span>
-                 </>
+                <>Sign In <LogIn className="w-5 h-5" /></>
               )}
             </button>
-          </div>
-        </form>
-        
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-              Sign up
-            </Link>
-          </p>
+          </form>
         </div>
+
+        <p className="text-center mt-8 text-gray-500 font-medium">
+          Don't have an account? <Link to="/register" className="text-indigo-600 font-bold hover:underline">Join the Joy</Link>
+        </p>
       </div>
     </div>
   );

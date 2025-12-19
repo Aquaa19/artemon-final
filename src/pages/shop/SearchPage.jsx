@@ -1,51 +1,56 @@
 // Filename: src/pages/shop/SearchPage.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Clock, ArrowUpLeft } from 'lucide-react';
+import { Search, X, Clock, ArrowUpLeft, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { firestoreService } from '../../services/db'; // Import cloud service
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Auto-focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
-    if (user) fetchHistory();
+    if (user) loadHistory();
   }, [user]);
 
-  const fetchHistory = async () => {
+  const loadHistory = async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/search/history/${user.email}`);
-      const json = await res.json();
-      setHistory(json.data || []);
+      // Fetch history from Firestore
+      const data = await firestoreService.getSearchHistory(user.uid);
+      setHistory(data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Cloud History Fetch Failed:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const saveHistory = async (text) => {
     if (!user || !text.trim()) return;
     try {
-      await fetch('/api/search/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, query: text })
-      });
+      // Save search term to user profile in Firestore
+      await firestoreService.saveSearchTerm(user.uid, text.trim());
     } catch (err) {
-      console.error(err);
+      console.error("Failed to save search to cloud:", err);
     }
   };
 
-  const deleteHistoryItem = async (id, e) => {
+  const deleteHistoryItem = async (term, e) => {
     e.stopPropagation();
     try {
-        await fetch(`/api/search/history/${id}`, { method: 'DELETE' });
-        setHistory(prev => prev.filter(h => h.id !== id));
-    } catch (e) { console.error(e); }
+      // Remove specific term from cloud history
+      const updatedHistory = history.filter(h => h !== term);
+      await firestoreService.updateUserSearchHistory(user.uid, updatedHistory);
+      setHistory(updatedHistory);
+    } catch (err) {
+      console.error("Delete from cloud failed:", err);
+    }
   };
 
   const handleSearch = (e) => {
@@ -58,20 +63,18 @@ export default function SearchPage() {
 
   const handleHistoryClick = (text) => {
     setQuery(text);
-    saveHistory(text); // Updates timestamp/order
+    saveHistory(text); 
     navigate(`/shop?search=${encodeURIComponent(text)}`);
   };
 
   return (
-    // UPDATED PADDING: increased to pt-32 for better separation from Navbar
-    <div className="min-h-screen bg-primary/5 backdrop-blur-xl pt-32 px-4 animate-pop-in">
+    <div className="min-h-screen bg-indigo-50/10 backdrop-blur-xl pt-32 px-4 animate-pop-in">
         <div className="max-w-3xl mx-auto">
             
-            {/* Header / Input Area */}
             <div className="relative flex items-center gap-4 mb-8">
                 <button 
                     onClick={() => navigate(-1)} 
-                    className="p-2 rounded-full bg-white/50 hover:bg-white text-gray-600 transition-all shadow-sm"
+                    className="p-3 rounded-2xl bg-white shadow-sm hover:shadow-md text-gray-400 hover:text-indigo-600 transition-all"
                 >
                     <ArrowUpLeft className="w-6 h-6" />
                 </button>
@@ -80,48 +83,66 @@ export default function SearchPage() {
                     <input 
                         ref={inputRef}
                         type="text" 
-                        className="w-full bg-white/60 hover:bg-white/80 focus:bg-white text-gray-900 text-lg placeholder-gray-500 rounded-2xl py-4 pl-12 pr-4 outline-none shadow-lg border-2 border-transparent focus:border-primary/30 transition-all"
+                        className="w-full bg-white text-gray-900 text-lg font-bold placeholder-gray-400 rounded-2xl py-4 pl-14 pr-4 outline-none shadow-xl border-2 border-transparent focus:border-indigo-100 transition-all"
                         placeholder="Search for toys..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
-                    <Search className="absolute left-4 top-4.5 w-6 h-6 text-gray-400 group-focus-within:text-primary transition-colors" />
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-300 group-focus-within:text-indigo-500 transition-colors" />
                     {query && (
                         <button 
                             type="button"
                             onClick={() => setQuery('')}
-                            className="absolute right-4 top-4.5 text-gray-400 hover:text-gray-600"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4" />
                         </button>
                     )}
                 </form>
             </div>
 
-            {/* History Section */}
-            <div className="bg-white/40 rounded-3xl p-6 shadow-sm border border-white/50 backdrop-blur-md">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Recent Searches
-                </h3>
+            <div className="bg-white/80 rounded-[2.5rem] p-8 shadow-sm border border-white backdrop-blur-md">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                      <Clock className="w-4 h-4" /> Recent Searches
+                  </h3>
+                  {history.length > 0 && (
+                    <button 
+                      onClick={async () => {
+                        await firestoreService.updateUserSearchHistory(user.uid, []);
+                        setHistory([]);
+                      }}
+                      className="text-[10px] font-black text-indigo-500 uppercase hover:underline"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
 
                 {user ? (
-                    <div className="space-y-2">
-                        {history.length === 0 ? (
-                            <p className="text-gray-400 text-sm italic">No recent searches found.</p>
+                    <div className="space-y-1">
+                        {loading ? (
+                          <div className="flex items-center gap-2 text-gray-400 py-4 font-bold text-sm">
+                            <Loader2 className="w-4 h-4 animate-spin" /> Fetching history...
+                          </div>
+                        ) : history.length === 0 ? (
+                            <p className="text-gray-400 text-sm font-bold italic py-4">No recent searches found in the cloud.</p>
                         ) : (
-                            history.map(item => (
+                            history.map((term, index) => (
                                 <div 
-                                    key={item.id} 
-                                    onClick={() => handleHistoryClick(item.query)}
-                                    className="flex items-center justify-between p-3 rounded-xl hover:bg-white/80 transition-colors cursor-pointer group"
+                                    key={index} 
+                                    onClick={() => handleHistoryClick(term)}
+                                    className="flex items-center justify-between p-4 rounded-2xl hover:bg-white hover:shadow-md hover:scale-[1.01] transition-all cursor-pointer group border border-transparent hover:border-indigo-50"
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <Search className="w-4 h-4 text-gray-400" />
-                                        <span className="text-gray-700 font-medium">{item.query}</span>
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-indigo-50 transition-colors">
+                                          <Search className="w-4 h-4 text-gray-300 group-hover:text-indigo-500" />
+                                        </div>
+                                        <span className="text-gray-700 font-bold">{term}</span>
                                     </div>
                                     <button 
-                                        onClick={(e) => deleteHistoryItem(item.id, e)}
-                                        className="p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                        onClick={(e) => deleteHistoryItem(term, e)}
+                                        className="p-2 rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -130,18 +151,20 @@ export default function SearchPage() {
                         )}
                     </div>
                 ) : (
-                    <div className="text-center py-8">
-                        <p className="text-gray-500 mb-4">Sign in to see your search history.</p>
+                    <div className="text-center py-12">
+                        <div className="p-4 bg-gray-50 rounded-full inline-flex mb-4">
+                          <Users className="w-8 h-8 text-gray-300" />
+                        </div>
+                        <p className="text-gray-500 font-bold mb-6">Sign in to sync your search history across devices.</p>
                         <button 
                             onClick={() => navigate('/login')}
-                            className="px-6 py-2 bg-primary text-white rounded-xl font-bold shadow-md hover:bg-primary-hover transition-colors"
+                            className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
                         >
-                            Sign In
+                            Sign In Now
                         </button>
                     </div>
                 )}
             </div>
-
         </div>
     </div>
   );

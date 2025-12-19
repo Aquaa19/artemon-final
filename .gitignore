@@ -41,3 +41,9 @@ server/artemon.db-wal
 
 # Vite build output
 dist/
+
+# Firebase Functions
+functions/node_modules/
+functions/lib/
+functions/.runtimeconfig.json
+functions/npm-debug.log*

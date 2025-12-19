@@ -1,6 +1,7 @@
 // Filename: src/pages/admin/Orders.jsx
 import { useEffect, useState } from 'react';
-import { ShoppingBag, Truck, CheckCircle, Clock, Search } from 'lucide-react';
+import { ShoppingBag, Loader2, Filter } from 'lucide-react';
+import { firestoreService } from '../../services/db'; // Import cloud service
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
@@ -12,11 +13,11 @@ export default function Orders() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/orders');
-      const json = await res.json();
-      setOrders(json.data || []);
+      // Fetch orders directly from Firestore collection
+      const data = await firestoreService.getAllOrders();
+      setOrders(data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching cloud orders:", err);
     } finally {
       setLoading(false);
     }
@@ -24,96 +25,108 @@ export default function Orders() {
 
   const updateStatus = async (id, newStatus) => {
     try {
-      await fetch(`/api/orders/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      fetchOrders();
+      // Call the service to update the status in Firestore
+      await firestoreService.updateOrderStatus(id, newStatus);
+      // Update local state for immediate UI feedback
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
     } catch (err) {
-      alert("Failed to update status");
+      console.error(err);
+      alert("Failed to update order status in the cloud.");
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Pending': return 'bg-yellow-100 text-yellow-700';
-      case 'Shipped': return 'bg-blue-100 text-blue-700';
-      case 'Delivered': return 'bg-green-100 text-green-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'Pending': return 'bg-yellow-50 text-yellow-600 border-yellow-100';
+      case 'Shipped': return 'bg-blue-50 text-blue-600 border-blue-100';
+      case 'Delivered': return 'bg-green-50 text-green-600 border-green-100';
+      case 'Cancelled': return 'bg-red-50 text-red-600 border-red-100';
+      default: return 'bg-gray-50 text-gray-600 border-gray-100';
     }
   };
 
-  if (loading) return <div className="p-10 text-center text-gray-500">Loading Orders...</div>;
+  if (loading) return (
+    <div className="p-20 text-center flex flex-col items-center gap-4">
+      <Loader2 className="animate-spin text-indigo-600 w-10 h-10" />
+      <p className="text-gray-500 font-medium">Loading Fulfillment Center...</p>
+    </div>
+  );
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl">
-          <ShoppingBag className="w-8 h-8" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-extrabold text-gray-900">Order Management</h1>
-          <p className="text-gray-500">Track and manage customer orders.</p>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl">
+            <ShoppingBag className="w-8 h-8" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900">Order Management</h1>
+            <p className="text-gray-500 font-medium">Track and fulfill cloud transactions.</p>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase">Order ID</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase">Customer</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase">Items</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase">Total</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase">Status</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase">Actions</th>
+              <th className="p-5 text-xs font-black text-gray-400 uppercase tracking-widest">Order Details</th>
+              <th className="p-5 text-xs font-black text-gray-400 uppercase tracking-widest">Customer</th>
+              <th className="p-5 text-xs font-black text-gray-400 uppercase tracking-widest">Items</th>
+              <th className="p-5 text-xs font-black text-gray-400 uppercase tracking-widest">Total</th>
+              <th className="p-5 text-xs font-black text-gray-400 uppercase tracking-widest">Status</th>
+              <th className="p-5 text-xs font-black text-gray-400 uppercase tracking-widest">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {orders.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-10 text-center text-gray-400">No orders found.</td>
+                <td colSpan="6" className="p-20 text-center text-gray-400 font-bold">No orders found in the cloud store.</td>
               </tr>
             ) : (
-              orders.map(order => {
-                let items = [];
-                try { items = JSON.parse(order.items); } catch(e) {}
-                
-                return (
-                  <tr key={order.id} className="hover:bg-gray-50/50">
-                    <td className="p-4 font-mono text-sm font-bold text-gray-600">#{order.id}</td>
-                    <td className="p-4 font-medium text-gray-900">{order.user_email}</td>
-                    <td className="p-4 text-sm text-gray-500">
-                      {items.length > 0 ? (
-                        <div className="flex flex-col">
-                          <span>{items[0].name}</span>
-                          {items.length > 1 && <span className="text-xs text-gray-400">+{items.length - 1} more</span>}
-                        </div>
-                      ) : 'No items'}
-                    </td>
-                    {/* CHANGED: $ -> ₹ */}
-                    <td className="p-4 font-bold text-gray-900">₹{order.total}</td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>
-                        {order.status}
+              orders.map(order => (
+                <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="p-5">
+                    <p className="font-black text-gray-900 leading-tight">#{order.id.slice(-6).toUpperCase()}</p>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                      {order.createdAt?.toDate 
+                        ? order.createdAt.toDate().toLocaleDateString() 
+                        : new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+                  </td>
+                  <td className="p-5 font-bold text-gray-600 text-sm">{order.user_email}</td>
+                  <td className="p-5">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-900 text-sm">
+                        {order.items?.[0]?.name || 'No items'}
                       </span>
-                    </td>
-                    <td className="p-4">
-                      <select 
-                        value={order.status}
-                        onChange={(e) => updateStatus(order.id, e.target.value)}
-                        className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Shipped">Shipped</option>
-                        <option value="Delivered">Delivered</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </td>
-                  </tr>
-                )
-              })
+                      {order.items?.length > 1 && (
+                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mt-0.5">
+                          +{order.items.length - 1} more items
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-5 font-black text-gray-900">₹{order.total?.toLocaleString()}</td>
+                  <td className="p-5">
+                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black border uppercase tracking-wider ${getStatusColor(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td className="p-5">
+                    <select 
+                      value={order.status}
+                      onChange={(e) => updateStatus(order.id, e.target.value)}
+                      className="bg-gray-50 border border-gray-100 text-gray-900 text-xs font-bold rounded-xl p-2 outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Shipped">Shipped</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

@@ -28,7 +28,7 @@ import Dashboard from './pages/admin/Dashboard';
 import Inventory from './pages/admin/Inventory';
 import Orders from './pages/admin/Orders';
 import Users from './pages/admin/Users';
-import Reviews from './pages/admin/Reviews'; // <--- ADDED IMPORT
+import Reviews from './pages/admin/Reviews';
 
 // Support Pages
 import { TrackOrder, ShippingInfo, Returns, FAQ, Privacy } from './pages/support/SupportPages';
@@ -93,7 +93,8 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <ProductModalProvider>
-          <Router>
+          {/* ADDED FUTURE FLAGS HERE */}
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ScrollToTop />
             <RouteTransitionHandler setLoading={setPageLoading} />
             <LoadingManager initialLoad={initialLoad} pageLoading={pageLoading} />
@@ -128,10 +129,9 @@ function App() {
                 <Route path="inventory" element={<Inventory />} />
                 <Route path="orders" element={<Orders />} />
                 <Route path="users" element={<Users />} />
-                <Route path="reviews" element={<Reviews />} /> {/* <--- ADDED ROUTE */}
+                <Route path="reviews" element={<Reviews />} />
               </Route>
 
-              {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <ProductQuickViewModal />

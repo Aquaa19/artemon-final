@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import ProductList from '../../components/product/ProductList';
 import { Filter, Flame, Sparkles, Heart, Search } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { firestoreService } from '../../services/db'; // Import the new service
 
 export default function Shop({ trendingOnly = false, newArrivalsOnly = false, favoritesOnly = false }) {
   const [products, setProducts] = useState([]);
@@ -12,7 +13,7 @@ export default function Shop({ trendingOnly = false, newArrivalsOnly = false, fa
   
   const [searchParams, setSearchParams] = useSearchParams();
   const currentCategory = searchParams.get('category') || 'all';
-  const searchQuery = searchParams.get('search'); // NEW: Get Search Query
+  const searchQuery = searchParams.get('search');
   
   const { wishlist } = useCart(); 
 
@@ -23,30 +24,24 @@ export default function Shop({ trendingOnly = false, newArrivalsOnly = false, fa
       return; 
     }
     fetchProducts();
-  }, [currentCategory, trendingOnly, newArrivalsOnly, favoritesOnly, wishlist, searchQuery]); // Add searchQuery dependency
+  }, [currentCategory, trendingOnly, newArrivalsOnly, favoritesOnly, wishlist, searchQuery]);
 
   const fetchProducts = async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
+      // Use firestoreService instead of fetch
+      const data = await firestoreService.getProducts({
+        category: currentCategory,
+        trending: trendingOnly,
+        newArrivals: newArrivalsOnly,
+        search: searchQuery
+      });
       
-      if (currentCategory !== 'all') params.append('category', currentCategory);
-      if (trendingOnly) params.append('trending', 'true');
-      if (newArrivalsOnly) params.append('newArrivals', 'true');
-      if (searchQuery) params.append('search', searchQuery); // NEW: Send to API
-
-      const queryString = params.toString();
-      const url = `/api/products?${queryString}`; 
-
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to connect to the store server.');
-
-      const json = await response.json();
-      setProducts(json.data || []);
+      setProducts(data || []);
     } catch (err) {
-      console.error(err);
-      setError(err.message);
+      console.error("Shop Fetch Error:", err);
+      setError("Unable to load products from the cloud database.");
     } finally {
       setLoading(false);
     }
@@ -85,7 +80,7 @@ export default function Shop({ trendingOnly = false, newArrivalsOnly = false, fa
           </div>
         </div>
 
-        {/* Category Filters (Only show on main shop page without search) */}
+        {/* Category Filters */}
         {!trendingOnly && !newArrivalsOnly && !favoritesOnly && !searchQuery && (
           <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-8 overflow-x-auto">
             <div className="flex space-x-2 min-w-max">

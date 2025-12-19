@@ -35,108 +35,116 @@ export default function ProductQuickViewModal() {
       onClick={closeModal}
     >
       <div 
-        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto transform scale-100 transition-transform duration-300 shadow-2xl"
+        className="bg-white rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto transform scale-100 transition-transform duration-300 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-4 lg:p-6 sticky top-0 bg-white z-10 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-900 line-clamp-1">{product.name}</h2>
+        <div className="p-6 lg:p-8 sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-gray-100 flex justify-between items-center">
+            <h2 className="text-2xl font-black text-gray-900 line-clamp-1">{product.name}</h2>
             <button 
                 onClick={closeModal} 
-                className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition"
+                className="p-2.5 rounded-2xl bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-all"
             >
                 <X className="w-6 h-6" />
             </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 lg:p-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 lg:p-10">
           
           <div className="flex flex-col gap-6">
-            <div className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
+            {/* Changed bg-gray-50 to bg-white for blending */}
+            <div className="relative aspect-square bg-white rounded-[2rem] overflow-hidden border border-gray-100 flex items-center justify-center p-8">
                 <img 
                     src={product.image || "https://placehold.co/800x800?text=No+Image"} 
                     alt={product.name}
-                    className="w-full h-full object-contain p-6"
+                    className="max-w-full max-h-full object-contain"
                 />
             </div>
 
-            {/* Production-Ready Community Activity */}
-            <div className="bg-gray-50 p-4 rounded-2xl shadow-inner border border-gray-100">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">Live Stats</h3>
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center text-amber-500 font-extrabold text-xl">
-                        <Star className={`w-5 h-5 mr-1 ${product.rating > 0 ? 'fill-current' : ''}`} /> 
-                        {product.rating || 0}
+            {/* Changed bg-gray-50 to bg-white for a cleaner look */}
+            <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm">
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Cloud Data Stats</h3>
+                <div className="flex justify-between items-center px-2">
+                    <div className="flex items-center text-amber-500 font-black text-xl">
+                        <Star className={`w-5 h-5 mr-1.5 ${product.rating > 0 ? 'fill-current' : ''}`} /> 
+                        {product.rating || "0.0"}
                     </div>
 
-                    <div className="flex items-center gap-1 text-gray-500">
+                    <div className="flex items-center gap-1.5 text-gray-500">
                         <ThumbsUp className="w-4 h-4" />
                         <span className="font-bold text-sm">{product.likes || 0}</span>
                     </div>
 
-                    <div className="flex items-center gap-1 text-gray-500">
+                    <div className="flex items-center gap-1.5 text-gray-500">
                         <MessageSquare className="w-4 h-4" />
-                        <span className="font-bold text-sm">{product.commentsCount || 0}</span>
+                        <span className="font-bold text-sm">{product.reviewsCount || 0}</span>
                     </div>
                 </div>
-                {/* Close modal when navigating to full detail page */}
+                
                 <Link 
                   to={`/product/${product.id}`} 
                   onClick={closeModal}
-                  className="mt-4 text-primary text-sm font-bold hover:underline block text-right"
+                  className="mt-5 text-indigo-600 text-sm font-black hover:underline block text-right"
                 >
-                    Read Full Reviews →
+                    Read Full Reviews & Details →
                 </Link>
             </div>
           </div>
 
-          <div className="flex flex-col justify-between">
+          <div className="flex flex-col justify-between py-2">
             <div>
-                <h1 className="text-3xl font-extrabold text-gray-900 mb-2">{product.name}</h1>
-                <div className="flex items-center gap-2 mb-4">
-                    <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">{product.category}</span>
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-wider">
+                      {product.category}
+                    </span>
+                    {product.isTrending && (
+                       <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-600 text-[10px] font-black uppercase tracking-wider">
+                         Trending
+                       </span>
+                    )}
                 </div>
                 
-                <p className="text-gray-500 text-md leading-relaxed mb-6">{product.description || "A wonderful toy designed to spark joy."}</p>
+                <h1 className="text-4xl font-black text-gray-900 mb-4">{product.name}</h1>
+                <p className="text-gray-500 text-md leading-relaxed mb-6">{product.description || "A high-quality toy from our curated cloud collection."}</p>
                 
-                <div className="mb-6 border-b border-gray-100 pb-6">
-                    <span className="text-4xl font-extrabold text-gray-900">₹{product.price.toFixed(2)}</span>
+                <div className="mb-8 pb-8 border-b border-gray-100">
+                    <span className="text-4xl font-black text-gray-900">₹{product.price?.toLocaleString()}</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 mb-8">
                     {[
-                        { icon: ShieldCheck, title: "Safety Certified" },
+                        { icon: ShieldCheck, title: "Safety Lab Verified" },
                         { icon: Truck, title: "Standard Delivery" },
                         { icon: RotateCcw, title: "30-Day Returns" },
-                        { icon: Star, title: "Brand Warranty" }
+                        { icon: Star, title: "Official Warranty" }
                     ].map((feat, i) => (
-                        <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 transition-colors">
-                            <feat.icon className="w-5 h-5 text-primary" />
-                            <span className="text-sm font-semibold text-gray-700">{feat.title}</span>
+                        <div key={i} className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-2xl border border-transparent hover:border-gray-200 transition-colors">
+                            <feat.icon className="w-5 h-5 text-indigo-600" />
+                            <span className="text-xs font-bold text-gray-700">{feat.title}</span>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div className="flex gap-4 items-center pt-4 border-t border-gray-100">
-                <div className="flex items-center bg-gray-100 rounded-xl p-1 shrink-0">
-                    <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-white rounded-lg transition font-bold">-</button>
-                    <span className="w-10 text-center font-bold text-gray-900">{quantity}</span>
-                    <button onClick={() => setQuantity(q => q + 1)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-white rounded-lg transition font-bold">+</button>
+            <div className="flex gap-4 items-center pt-6 border-t border-gray-100">
+                <div className="flex items-center bg-gray-100 rounded-2xl p-1 shrink-0">
+                    <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-lg">-</button>
+                    <span className="w-10 text-center font-black text-gray-900">{quantity}</span>
+                    <button onClick={() => setQuantity(q => q + 1)} className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-lg">+</button>
                 </div>
                 
                 <button 
                     onClick={handleAddToCart}
-                    className="shine-effect flex-1 bg-primary hover:bg-primary-hover text-white font-bold text-lg rounded-xl shadow-lg transition-all transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 py-3"
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-100 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 py-4"
                 >
                     <ShoppingCart className="w-5 h-5" /> Add to Cart
                 </button>
                 
                 <button 
                     onClick={handleToggleWishlist}
-                    className={`p-3 rounded-xl transition-all shadow-md shrink-0
+                    className={`p-4 rounded-2xl transition-all shadow-md shrink-0
                         ${isFavorite 
                         ? 'bg-red-500 text-white hover:bg-red-600' 
-                        : 'border-2 border-gray-100 hover:border-red-200 hover:bg-red-50 hover:text-red-500'
+                        : 'bg-white border-2 border-gray-100 hover:border-red-200 hover:bg-red-50 hover:text-red-500'
                         }`}
                 >
                     <Heart className={`w-6 h-6 ${isFavorite ? 'fill-current' : ''}`} />

@@ -1,56 +1,45 @@
 // Filename: src/pages/admin/Dashboard.jsx
 import { useState, useEffect } from 'react';
-import { TrendingUp, Package, DollarSign, Users, ShoppingBag } from 'lucide-react';
+import { TrendingUp, Package, DollarSign, Users, ShoppingBag, Loader2 } from 'lucide-react';
+import { firestoreService } from '../../services/db';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    products: [],
-    users: [],
-    orders: []
-  });
+  const [stats, setStats] = useState({ products: [], users: [], orders: [] });
   const [loading, setLoading] = useState(true);
+  
+  // Tooltip States
+  const [activeUserPoint, setActiveUserPoint] = useState(null);
+  const [activeOrderPoint, setActiveOrderPoint] = useState(null);
 
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const [pRes, uRes, oRes] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/users'),
-          fetch('/api/orders')
+        const [products, users, orders] = await Promise.all([
+          firestoreService.getProducts(),
+          firestoreService.getAllUsers(),
+          firestoreService.getAllOrders()
         ]);
-
-        const pData = await pRes.json();
-        const uData = await uRes.json();
-        const oData = await oRes.json();
-
-        setStats({
-          products: pData.data || [],
-          users: uData.data || [],
-          orders: oData.data || []
-        });
+        setStats({ products, users, orders });
       } catch (err) {
-        console.error("Failed to load dashboard data", err);
+        console.error("Dashboard Sync Error:", err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchAllData();
   }, []);
 
-  // --- Helper to Generate Chart Data (Last 7 Days) ---
   const getChartData = (dataList) => {
     const last7Days = [...Array(7)].map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
-      return d.toISOString().split('T')[0]; // YYYY-MM-DD
+      return d.toISOString().split('T')[0];
     });
 
     return last7Days.map(date => {
       const count = dataList.filter(item => {
-        // Handle SQLite date format (YYYY-MM-DD HH:MM:SS)
-        const itemDate = new Date(item.createdAt).toISOString().split('T')[0];
-        return itemDate === date;
+        const createdAt = item.createdAt?.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
+        return createdAt.toISOString().split('T')[0] === date;
       }).length;
       return { date, count };
     });
@@ -58,102 +47,191 @@ export default function Dashboard() {
 
   const userChart = getChartData(stats.users);
   const orderChart = getChartData(stats.orders);
-  
-  // Find max value to normalize bar heights
-  const maxCount = Math.max(
-    ...userChart.map(d => d.count), 
-    ...orderChart.map(d => d.count), 
-    5 // Minimum scale
+  const maxCount = Math.max(...userChart.map(d => d.count), ...orderChart.map(d => d.count), 5);
+
+  const getLinePath = (data) => {
+    return data.map((d, i) => {
+      const x = (i / (data.length - 1)) * 100;
+      const y = 40 - (d.count / maxCount) * 40;
+      return `${x},${y}`;
+    }).join(' ');
+  };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center p-20 gap-4">
+       <Loader2 className="animate-spin text-indigo-600 w-10 h-10" />
+       <p className="text-gray-500 font-medium">Fetching Cloud Intelligence...</p>
+    </div>
   );
 
-  if (loading) return <div className="p-10 text-center text-gray-500">Loading Dashboard...</div>;
-
   return (
-    <div>
-      <h1 className="text-2xl font-extrabold text-gray-900 mb-8">Dashboard Overview</h1>
+    <div className="space-y-8">
+      <h1 className="text-2xl font-black text-gray-900">Cloud Dashboard</h1>
 
-      {/* Top Stats Row (Products, Trending, Price) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Package className="w-6 h-6"/></div>
-          <div><p className="text-sm text-gray-500 font-medium">Total Products</p><p className="text-2xl font-bold text-gray-800">{stats.products.length}</p></div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-md">
+          <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl"><Package className="w-6 h-6"/></div>
+          <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Products</p><p className="text-2xl font-black text-gray-800">{stats.products.length}</p></div>
         </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-3 bg-orange-50 text-orange-600 rounded-xl"><TrendingUp className="w-6 h-6"/></div>
-          <div><p className="text-sm text-gray-500 font-medium">Trending</p><p className="text-2xl font-bold text-gray-800">{stats.products.filter(p => p.isTrending).length}</p></div>
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-md">
+          <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl"><TrendingUp className="w-6 h-6"/></div>
+          <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Trending Items</p><p className="text-2xl font-black text-gray-800">{stats.products.filter(p => p.isTrending).length}</p></div>
         </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-3 bg-green-50 text-green-600 rounded-xl"><DollarSign className="w-6 h-6"/></div>
-          {/* CHANGED: $ -> ₹ */}
-          <div><p className="text-sm text-gray-500 font-medium">Avg Price</p><p className="text-2xl font-bold text-gray-800">₹{(stats.products.reduce((acc, p) => acc + p.price, 0) / (stats.products.length || 1)).toFixed(2)}</p></div>
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-md">
+          <div className="p-4 bg-green-50 text-green-600 rounded-2xl"><DollarSign className="w-6 h-6"/></div>
+          <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Avg Price</p><p className="text-2xl font-black text-gray-800">₹{(stats.products.reduce((acc, p) => acc + p.price, 0) / (stats.products.length || 1)).toFixed(0)}</p></div>
         </div>
       </div>
 
-      {/* Graph Section: Users & Orders */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      {/* SVG Line Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* User Growth Chart */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-6">
+        {/* User Signups Line Chart */}
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start mb-8">
             <div>
-              <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Total Users</p>
-              <h3 className="text-3xl font-extrabold text-gray-900">{stats.users.length}</h3>
+              <h3 className="font-black text-gray-900">User Signups</h3>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter">Activity: Last 7 Days</p>
             </div>
-            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><Users className="w-6 h-6"/></div>
+            <div className="px-3 py-1 bg-purple-50 text-purple-600 rounded-lg text-[10px] font-black uppercase">Growth</div>
           </div>
           
-          {/* Custom CSS Bar Chart */}
-          <div className="h-40 flex items-end justify-between gap-2">
-            {userChart.map((day, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
-                <div 
-                  className="w-full bg-purple-100 rounded-t-md relative group-hover:bg-purple-200 transition-all duration-500"
-                  style={{ height: `${(day.count / maxCount) * 100}%`, minHeight: '4px' }}
-                >
-                  {/* Tooltip */}
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                    {day.count} Users
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-gray-400">
-                  {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
-                </span>
+          <div className="relative h-40 w-full px-2">
+            {/* Tooltip Popup */}
+            {activeUserPoint !== null && (
+              <div 
+                className="absolute z-10 bg-gray-900 text-white px-2 py-1 rounded text-[10px] font-bold pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 transition-all duration-200"
+                style={{ 
+                  left: `${(activeUserPoint / 6) * 100}%`, 
+                  top: `${40 - (userChart[activeUserPoint].count / maxCount) * 40}%` 
+                }}
+              >
+                {userChart[activeUserPoint].count} Users
               </div>
-            ))}
-          </div>
-        </div>
+            )}
 
-        {/* Orders Chart */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Total Orders</p>
-              <h3 className="text-3xl font-extrabold text-gray-900">{stats.orders.length}</h3>
+            <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible">
+              <defs>
+                <linearGradient id="purpleGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#818cf8" />
+                  <stop offset="100%" stopColor="white" />
+                </linearGradient>
+              </defs>
+              <path d={`M 0 40 L ${getLinePath(userChart)} L 100 40 Z`} fill="url(#purpleGradient)" className="opacity-20" />
+              <polyline fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={getLinePath(userChart)} />
+              
+              {/* Interaction Dots */}
+              {userChart.map((d, i) => (
+                <circle 
+                  key={i}
+                  cx={(i / 6) * 100}
+                  cy={40 - (d.count / maxCount) * 40}
+                  r={activeUserPoint === i ? "2" : "0"}
+                  fill="#818cf8"
+                  className="transition-all duration-200"
+                />
+              ))}
+
+              {/* Invisible Hover Zones */}
+              {userChart.map((_, i) => (
+                <rect
+                  key={i}
+                  x={(i / 6) * 100 - 5}
+                  y="0"
+                  width="10"
+                  height="40"
+                  fill="transparent"
+                  className="cursor-pointer"
+                  onMouseEnter={() => setActiveUserPoint(i)}
+                  onMouseLeave={() => setActiveUserPoint(null)}
+                />
+              ))}
+            </svg>
+            
+            <div className="flex justify-between mt-4">
+              {userChart.map((d, i) => (
+                <span key={i} className="text-[8px] font-black text-gray-300 uppercase tracking-tighter">
+                  {new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                </span>
+              ))}
             </div>
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><ShoppingBag className="w-6 h-6"/></div>
-          </div>
-
-          {/* Custom CSS Bar Chart */}
-          <div className="h-40 flex items-end justify-between gap-2">
-             {orderChart.map((day, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
-                <div 
-                  className="w-full bg-indigo-100 rounded-t-md relative group-hover:bg-indigo-200 transition-all duration-500"
-                  style={{ height: `${(day.count / maxCount) * 100}%`, minHeight: '4px' }}
-                >
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                    {day.count} Orders
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-gray-400">
-                  {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
-      </div>
 
+        {/* Order Volume Line Chart */}
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h3 className="font-black text-gray-900">Order Volume</h3>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter">Sales: Last 7 Days</p>
+            </div>
+            <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase">Revenue</div>
+          </div>
+
+          <div className="relative h-40 w-full px-2">
+            {/* Tooltip Popup */}
+            {activeOrderPoint !== null && (
+              <div 
+                className="absolute z-10 bg-indigo-600 text-white px-2 py-1 rounded text-[10px] font-bold pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 transition-all duration-200"
+                style={{ 
+                  left: `${(activeOrderPoint / 6) * 100}%`, 
+                  top: `${40 - (orderChart[activeOrderPoint].count / maxCount) * 40}%` 
+                }}
+              >
+                {orderChart[activeOrderPoint].count} Orders
+              </div>
+            )}
+
+            <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible">
+              <defs>
+                <linearGradient id="indigoGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#4f46e5" />
+                  <stop offset="100%" stopColor="white" />
+                </linearGradient>
+              </defs>
+              <path d={`M 0 40 L ${getLinePath(orderChart)} L 100 40 Z`} fill="url(#indigoGradient)" className="opacity-20" />
+              <polyline fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={getLinePath(orderChart)} />
+              
+              {/* Interaction Dots */}
+              {orderChart.map((d, i) => (
+                <circle 
+                  key={i}
+                  cx={(i / 6) * 100}
+                  cy={40 - (d.count / maxCount) * 40}
+                  r={activeOrderPoint === i ? "2" : "0"}
+                  fill="#4f46e5"
+                  className="transition-all duration-200"
+                />
+              ))}
+
+              {/* Invisible Hover Zones */}
+              {orderChart.map((_, i) => (
+                <rect
+                  key={i}
+                  x={(i / 6) * 100 - 5}
+                  y="0"
+                  width="10"
+                  height="40"
+                  fill="transparent"
+                  className="cursor-pointer"
+                  onMouseEnter={() => setActiveOrderPoint(i)}
+                  onMouseLeave={() => setActiveOrderPoint(null)}
+                />
+              ))}
+            </svg>
+
+            <div className="flex justify-between mt-4">
+              {orderChart.map((d, i) => (
+                <span key={i} className="text-[8px] font-black text-gray-300 uppercase tracking-tighter">
+                  {new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
