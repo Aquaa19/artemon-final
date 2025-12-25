@@ -1,28 +1,61 @@
 // Filename: src/components/product/ProductCard.jsx
 import { Link } from 'react-router-dom';
 import { ShoppingCart, Heart, Star, Eye } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
 import { useProductModal } from '../../context/ProductModalContext';
+import { flyToCart } from '../../utils/animations';
 
 export default function ProductCard({ product }) {
   const { addToCart, toggleWishlist, isInWishlist } = useCart();
   const { openModal } = useProductModal();
   const isFavorite = isInWishlist(product.id);
 
+  /**
+   * Helper to create a URL-friendly slug from the product name
+   * Example: "Brown Teddy Bear" -> "brown-teddy-bear"
+   */
+  const createSlug = (name) => {
+    if (!name) return 'product';
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  };
+
   const handleQuickView = (e) => {
     e.preventDefault();
     openModal(product);
   };
 
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    flyToCart(e); 
+    addToCart(product);
+  };
+
+  // Descriptive URL structure: /product/slug-name/id
+  const productPath = `/product/${createSlug(product.name)}/${product.id}`;
+
   return (
-    <div className="group relative bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-gray-100 flex flex-col h-full">
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group relative bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-gray-100 flex flex-col h-full"
+    >
       
-      {/* Product Image Container - Changed to bg-white for blending */}
+      {/* Product Image Container */}
       <div className="relative aspect-square bg-white overflow-hidden p-4">
-        <Link to={`/product/${product.id}`} className="block w-full h-full">
-          <img 
+        <Link to={productPath} className="block w-full h-full">
+          <motion.img 
+            layoutId={`product-image-${product.id}`}
             src={product.image || "https://placehold.co/400x400?text=No+Image"} 
             alt={product.name}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
             onError={(e) => { 
               e.target.onerror = null; 
@@ -77,7 +110,7 @@ export default function ProductCard({ product }) {
           </div>
         </div>
 
-        <Link to={`/product/${product.id}`}>
+        <Link to={productPath}>
           <h3 className="text-lg font-black text-gray-900 mb-2 line-clamp-1 group-hover:text-indigo-600 transition-colors">
             {product.name}
           </h3>
@@ -92,14 +125,15 @@ export default function ProductCard({ product }) {
             ₹{product.price?.toLocaleString()}
           </span>
           
-          <button 
-            onClick={() => addToCart(product)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl font-black text-sm transition-all shadow-lg shadow-indigo-100 active:scale-95"
+          <motion.button 
+            whileTap={{ scale: 0.95 }}
+            onClick={handleAddToCart}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl font-black text-sm transition-all shadow-lg shadow-indigo-100"
           >
             <ShoppingCart className="w-4 h-4" /> Add
-          </button>
+          </motion.button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

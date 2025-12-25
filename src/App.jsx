@@ -1,7 +1,8 @@
 // Filename: src/App.jsx
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AnimatePresence } from 'framer-motion';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { ProductModalProvider } from './context/ProductModalContext';
 
@@ -39,6 +40,35 @@ import ProductQuickViewModal from './components/product/ProductQuickViewModal';
 import LoadingScreen from './components/layout/LoadingScreen';
 import LoadingScreen2 from './components/layout/LoadingScreen2';
 
+// --- ROUTE GUARDS ---
+
+/**
+ * Prevents logged-in users from accessing Login/Register
+ */
+function PublicOnlyRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? <Navigate to="/shop" replace /> : children;
+}
+
+/**
+ * Requires a user to be logged in
+ */
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? children : <Navigate to="/login" replace />;
+}
+
+/**
+ * Requires 'admin' role in profile or custom claims
+ */
+function AdminRoute({ children }) {
+  const { user, loading, isAdmin } = useAuth();
+  if (loading) return null;
+  return isAdmin ? children : <Navigate to="/" replace />;
+}
+
 function RouteTransitionHandler({ setLoading }) {
   const location = useLocation();
 
@@ -51,6 +81,57 @@ function RouteTransitionHandler({ setLoading }) {
   }, [location, setLoading]);
 
   return null; 
+}
+
+function AnimatedRoutes({ setPageLoading }) {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        {/* Public Layout */}
+        <Route path="/" element={<PublicLayout />}>
+          <Route index element={<Home />} />
+          <Route path="shop" element={<Shop />} />
+          <Route path="trending" element={<Shop trendingOnly={true} />} />
+          <Route path="new-arrivals" element={<Shop newArrivalsOnly={true} />} />
+          
+          {/* We will update the product path in the next step to handle slugs */}
+          <Route path="product/:slug/:id" element={<ProductDetail />} />
+          <Route path="product/:slug/:id/write-review" element={<WriteReview />} />
+          
+          <Route path="cart" element={<Cart />} />
+          <Route path="favorites" element={<Favorites />} />
+          <Route path="search" element={<SearchPage />} />
+          
+          {/* Auth Guards */}
+          <Route path="login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path="register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+          
+          <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+          
+          <Route path="order-success" element={<OrderSuccess />} />
+          <Route path="track-order" element={<TrackOrder />} />
+          <Route path="shipping" element={<ShippingInfo />} />
+          <Route path="returns" element={<Returns />} />
+          <Route path="faq" element={<FAQ />} />
+          <Route path="privacy" element={<Privacy />} />
+        </Route>
+
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+          <Route index element={<Dashboard />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="users" element={<Users />} />
+          <Route path="reviews" element={<Reviews />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AnimatePresence>
+  );
 }
 
 function App() {
@@ -70,7 +151,7 @@ function App() {
              setTimeout(resolve, 3000); 
           });
         }
-        const preloadImages = ['/artemon_joy_banner.png', '/artemon_joy_logo.png'];
+        const preloadImages = ['/artemon_joy_banner.webp', '/artemon_joy_logo.webp'];
         await Promise.all(preloadImages.map(src => {
           return new Promise((resolve) => {
             const img = new Image();
@@ -93,47 +174,13 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <ProductModalProvider>
-          {/* ADDED FUTURE FLAGS HERE */}
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ScrollToTop />
             <RouteTransitionHandler setLoading={setPageLoading} />
             <LoadingManager initialLoad={initialLoad} pageLoading={pageLoading} />
 
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<PublicLayout />}>
-                <Route index element={<Home />} />
-                <Route path="shop" element={<Shop />} />
-                <Route path="trending" element={<Shop trendingOnly={true} />} />
-                <Route path="new-arrivals" element={<Shop newArrivalsOnly={true} />} />
-                <Route path="product/:id" element={<ProductDetail />} />
-                <Route path="product/:id/write-review" element={<WriteReview />} />
-                <Route path="cart" element={<Cart />} />
-                <Route path="favorites" element={<Favorites />} />
-                <Route path="search" element={<SearchPage />} />
-                <Route path="login" element={<Login />} />
-                <Route path="register" element={<Register />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="checkout" element={<Checkout />} />
-                <Route path="order-success" element={<OrderSuccess />} />
-                <Route path="track-order" element={<TrackOrder />} />
-                <Route path="shipping" element={<ShippingInfo />} />
-                <Route path="returns" element={<Returns />} />
-                <Route path="faq" element={<FAQ />} />
-                <Route path="privacy" element={<Privacy />} />
-              </Route>
+            <AnimatedRoutes setPageLoading={setPageLoading} />
 
-              {/* Admin Routes */}
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="inventory" element={<Inventory />} />
-                <Route path="orders" element={<Orders />} />
-                <Route path="users" element={<Users />} />
-                <Route path="reviews" element={<Reviews />} />
-              </Route>
-
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
             <ProductQuickViewModal />
           </Router>
         </ProductModalProvider>

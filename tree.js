@@ -1,13 +1,12 @@
 // Filename: tree.js
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const IGNORE_LIST = ['node_modules', '.git', 'dist', '.DS_Store'];
 
 function generateTree(dir, prefix = '') {
     const files = fs.readdirSync(dir);
-    
-    // Sort to show directories first, then files
+
     const sortedFiles = files.filter(file => !IGNORE_LIST.includes(file)).sort((a, b) => {
         const aPath = path.join(dir, a);
         const bPath = path.join(dir, b);
@@ -22,7 +21,7 @@ function generateTree(dir, prefix = '') {
         const filePath = path.join(dir, file);
         const isDirectory = fs.statSync(filePath).isDirectory();
         const isLast = index === sortedFiles.length - 1;
-        
+
         const marker = isLast ? '└── ' : '├── ';
         console.log(`${prefix}${marker}${file}`);
 
@@ -33,11 +32,10 @@ function generateTree(dir, prefix = '') {
     });
 }
 
-// Get directory from command line arguments or use current directory
 const targetDir = process.argv[2] || '.';
 const absolutePath = path.resolve(targetDir);
 
 console.log(`\n📁 Project Tree: ${path.basename(absolutePath)}`);
-console.log('=' .repeat(30));
+console.log('='.repeat(30));
 generateTree(absolutePath);
-console.log('=' .repeat(30) + '\n');
+console.log('='.repeat(30) + '\n');

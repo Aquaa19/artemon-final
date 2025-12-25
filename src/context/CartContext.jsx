@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 
 const CartContext = createContext();
 
@@ -22,11 +22,9 @@ export function CartProvider({ children }) {
 
     const loadData = async () => {
       if (user) {
-        // Logged in: Cart and Wishlist come from the User document
         setCartItems(user.cart || []);
         setWishlist(user.wishlist || []);
       } else {
-        // Guest: Use LocalStorage
         const storedCart = localStorage.getItem('cart');
         const storedWish = localStorage.getItem('wishlist_guest');
         setCartItems(storedCart ? JSON.parse(storedCart) : []);
@@ -42,28 +40,25 @@ export function CartProvider({ children }) {
   const addToCart = async (product, quantity = 1) => {
     const newItem = { ...product, quantity };
     
+    // We update state immediately for snappy UI feedback
+    let updatedCart;
+    const existingItem = cartItems.find(i => i.id === product.id);
+    
+    if (existingItem) {
+      updatedCart = cartItems.map(i => 
+        i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i
+      );
+    } else {
+      updatedCart = [...cartItems, newItem];
+    }
+    
+    setCartItems(updatedCart);
+
     if (user) {
       const userRef = doc(db, 'users', user.uid);
-      const existingItem = cartItems.find(i => i.id === product.id);
-      
-      let updatedCart;
-      if (existingItem) {
-        updatedCart = cartItems.map(i => i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i);
-      } else {
-        updatedCart = [...cartItems, newItem];
-      }
-      
-      setCartItems(updatedCart);
       await updateDoc(userRef, { cart: updatedCart });
     } else {
-      setCartItems(prev => {
-        const existing = prev.find(i => i.id === product.id);
-        const updated = existing 
-          ? prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i)
-          : [...prev, newItem];
-        localStorage.setItem('cart', JSON.stringify(updated));
-        return updated;
-      });
+      localStorage.setItem('cart', JSON.stringify(updatedCart));
     }
   };
 

@@ -8,15 +8,14 @@ import {
 } from 'lucide-react';
 
 export default function Register() {
-  const { requestOTP, verifyAndRegister } = useAuth();
+  const { requestOTP, verifyAndRegister, loginWithGoogle } = useAuth(); // Added loginWithGoogle
   const navigate = useNavigate();
 
-  // Step Management: 1 = Info, 2 = OTP Verification
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false); // New loader for Google
   const [error, setError] = useState('');
 
-  // Form Data
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -26,10 +25,9 @@ export default function Register() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (error) setError(''); // Clear error on type
+    if (error) setError('');
   };
 
-  // --- STAGE 1: Request OTP ---
   const handleRequestOTP = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -37,7 +35,7 @@ export default function Register() {
 
     try {
       await requestOTP(formData.email);
-      setStep(2); // Move to OTP entry
+      setStep(2);
     } catch (err) {
       console.error(err);
       setError('Failed to send verification code. Please check your email address.');
@@ -46,7 +44,6 @@ export default function Register() {
     }
   };
 
-  // --- STAGE 2: Verify & Create Account ---
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -59,7 +56,7 @@ export default function Register() {
         formData.otp, 
         formData.name
       );
-      navigate('/shop'); // Success!
+      navigate('/shop');
     } catch (err) {
       console.error(err);
       setError('Invalid or expired verification code.');
@@ -68,10 +65,24 @@ export default function Register() {
     }
   };
 
+  // --- NEW: Google Registration Handler ---
+  const handleGoogleRegister = async () => {
+    setGoogleLoading(true);
+    setError('');
+    try {
+      await loginWithGoogle();
+      navigate('/shop');
+    } catch (err) {
+      console.error("Google registration error:", err);
+      setError('Could not connect to Google. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 pt-20">
       <div className="max-w-md w-full">
-        {/* Branding/Header */}
         <div className="text-center mb-10">
           <div className="inline-flex p-3 rounded-2xl bg-indigo-600 text-white shadow-lg mb-4">
             <Sparkles className="w-8 h-8" />
@@ -88,45 +99,72 @@ export default function Register() {
           )}
 
           {step === 1 ? (
-            /* --- STEP 1: INFORMATION --- */
-            <form onSubmit={handleRequestOTP} className="space-y-5">
-              <div className="space-y-1">
-                <label className="text-sm font-bold text-gray-700 ml-1">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input required name="name" type="text" placeholder="John Doe" 
-                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50"
-                    value={formData.name} onChange={handleChange} />
+            <>
+              <form onSubmit={handleRequestOTP} className="space-y-5">
+                <div className="space-y-1">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input required name="name" type="text" placeholder="John Doe" 
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50"
+                      value={formData.name} onChange={handleChange} />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input required name="email" type="email" placeholder="hello@example.com" 
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50"
+                      value={formData.email} onChange={handleChange} />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Set Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input required name="password" type="password" placeholder="••••••••" 
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50"
+                      value={formData.password} onChange={handleChange} />
+                  </div>
+                </div>
+
+                <button disabled={loading || googleLoading} type="submit"
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
+                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Send Verification Code <ArrowRight className="w-5 h-5" /></>}
+                </button>
+              </form>
+
+              {/* Divider */}
+              <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-100"></span>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-white text-gray-400 font-bold uppercase tracking-wider">Or quick join with</span>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-sm font-bold text-gray-700 ml-1">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input required name="email" type="email" placeholder="hello@example.com" 
-                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50"
-                    value={formData.email} onChange={handleChange} />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-bold text-gray-700 ml-1">Set Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input required name="password" type="password" placeholder="••••••••" 
-                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50"
-                    value={formData.password} onChange={handleChange} />
-                </div>
-              </div>
-
-              <button disabled={loading} type="submit"
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
-                {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Send Verification Code <ArrowRight className="w-5 h-5" /></>}
+              {/* Google Button */}
+              <button
+                type="button"
+                disabled={loading || googleLoading}
+                onClick={handleGoogleRegister}
+                className="w-full py-4 bg-white border-2 border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/30 text-gray-700 font-bold rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+              >
+                {googleLoading ? (
+                  <Loader2 className="animate-spin w-5 h-5" />
+                ) : (
+                  <>
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+                    Sign up with Google
+                  </>
+                )}
               </button>
-            </form>
+            </>
           ) : (
-            /* --- STEP 2: OTP VERIFICATION --- */
             <form onSubmit={handleFinalSubmit} className="space-y-6 text-center">
               <div className="space-y-2">
                 <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">

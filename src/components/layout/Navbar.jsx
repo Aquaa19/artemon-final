@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ShoppingCart, LogOut, Heart, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 
@@ -67,10 +68,10 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`fixed w-full top-0 z-50 transition-all duration-300 
+      className={`fixed w-full top-0 z-50 transition-all duration-500 
       ${
         showWhiteNav
-          ? 'glass-prism py-2 shadow-sm'
+          ? 'glass-prism py-2' 
           : `${isHome ? 'bg-transparent' : 'bg-primary'} py-5`
       }`}
     >
@@ -80,13 +81,13 @@ export default function Navbar() {
             <div className="relative">
               <div className="absolute inset-0 bg-primary rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity"></div>
               <img
-                src="/artemon_joy_logo.png"
+                src="/artemon_joy_logo.webp"
                 alt="Artemon Joy"
-                className="relative h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm"
+                className="relative h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover border-2 border-white shadow-sm"
               />
             </div>
             <span
-              className={`font-bold text-xl tracking-tight transition-colors hidden sm:block ${textColor}`}
+              className={`font-bold text-lg sm:text-xl tracking-tight transition-colors ${textColor}`}
             >
               Artemon <span className={brandColor}>Joy</span>
             </span>
@@ -164,16 +165,32 @@ export default function Navbar() {
               )}
             </Link>
 
+            {/* MAGNETIC CART ICON WITH RE-FIXED POP ANIMATION */}
             <Link
               to="/cart"
+              id="cart-icon" 
               className={`p-2 rounded-full transition-all relative group ${iconColor} hover:bg-black/5`}
             >
-              <ShoppingCart className="h-5 w-5" />
-              {getCartCount() > 0 && (
-                <span className="absolute top-0 right-0 h-4 w-4 bg-secondary text-[10px] font-bold text-white flex items-center justify-center rounded-full shadow-sm animate-bounce">
-                  {getCartCount()}
-                </span>
-              )}
+              <motion.div
+                whileTap={{ scale: 0.8 }}
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                <AnimatePresence mode="popLayout">
+                  {getCartCount() > 0 && (
+                    <motion.span
+                      key={`cart-badge-${getCartCount()}`}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                      className="absolute top-0 right-0 h-4 w-4 bg-secondary text-[10px] font-bold text-white flex items-center justify-center rounded-full shadow-md"
+                    >
+                      {getCartCount()}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             </Link>
 
             {user ? (
@@ -227,7 +244,6 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Added: Favorite Icon for Mobile */}
             <Link to="/favorites" className={`relative ${iconColor}`}>
               <Heart className="h-6 w-6" />
               {wishlist.length > 0 && (
@@ -237,13 +253,21 @@ export default function Navbar() {
               )}
             </Link>
 
-            <Link to="/cart" className={`relative ${iconColor}`}>
+            <Link to="/cart" id="cart-icon-mobile" className={`relative ${iconColor}`}>
               <ShoppingCart className="h-6 w-6" />
-              {getCartCount() > 0 && (
-                <span className="absolute top-0 right-0 h-4 w-4 bg-secondary text-[10px] font-bold text-white flex items-center justify-center rounded-full">
-                  {getCartCount()}
-                </span>
-              )}
+              <AnimatePresence mode="popLayout">
+                {getCartCount() > 0 && (
+                  <motion.span
+                    key={`cart-badge-mobile-${getCartCount()}`}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="absolute top-0 right-0 h-4 w-4 bg-secondary text-[10px] font-bold text-white flex items-center justify-center rounded-full"
+                  >
+                    {getCartCount()}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </Link>
 
             <button

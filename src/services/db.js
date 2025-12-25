@@ -1,5 +1,4 @@
 // Filename: src/services/db.js
-
 import { 
   collection, 
   getDocs, 
@@ -20,6 +19,15 @@ const PRODUCTS_COLLECTION = 'products';
 const REVIEWS_COLLECTION = 'reviews';
 const USERS_COLLECTION = 'users';
 const ORDERS_COLLECTION = 'orders';
+
+/**
+ * Helper to ensure we always use optimized .webp images for faster loading.
+ */
+const optimizeImageUrl = (url) => {
+  if (!url) return url;
+  // Replaces .jpg, .jpeg, or .png with .webp (case insensitive)
+  return url.replace(/\.(jpg|jpeg|png)$/i, '.webp');
+};
 
 export const firestoreService = {
   // --- PRODUCT OPERATIONS ---
@@ -46,14 +54,20 @@ export const firestoreService = {
       }
 
       const querySnapshot = await getDocs(q);
-      const products = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      
+      // FIXED: Map and transform image paths to .webp
+      let products = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          image: optimizeImageUrl(data.image)
+        };
+      });
 
       if (filters.search) {
         const term = filters.search.toLowerCase();
-        return products.filter(p =>
+        products = products.filter(p =>
           p.name.toLowerCase().includes(term) ||
           p.description.toLowerCase().includes(term)
         );
@@ -69,9 +83,14 @@ export const firestoreService = {
   getProductById: async (id) => {
     const docRef = doc(db, PRODUCTS_COLLECTION, id);
     const docSnap = await getDoc(docRef);
-    return docSnap.exists()
-      ? { id: docSnap.id, ...docSnap.data() }
-      : null;
+    if (!docSnap.exists()) return null;
+
+    const data = docSnap.data();
+    return { 
+      id: docSnap.id, 
+      ...data,
+      image: optimizeImageUrl(data.image) // FIXED: Transform single product image
+    };
   },
 
   addProduct: async (productData) => {
@@ -91,7 +110,7 @@ export const firestoreService = {
     return await deleteDoc(docRef);
   },
 
-  // --- DASHBOARD & ADMIN OPERATIONS ---
+  // --- USER & ADMIN OPERATIONS ---
   getAllUsers: async () => {
     try {
       const snapshot = await getDocs(collection(db, USERS_COLLECTION));
@@ -110,6 +129,7 @@ export const firestoreService = {
     return await deleteDoc(docRef);
   },
 
+  // --- ORDER OPERATIONS ---
   getAllOrders: async () => {
     try {
       const q = query(
@@ -128,10 +148,18 @@ export const firestoreService = {
   },
 
   createOrder: async (orderData) => {
-    return await addDoc(collection(db, ORDERS_COLLECTION), {
-      ...orderData,
-      createdAt: serverTimestamp()
-    });
+    try {
+      const ordersRef = collection(db, ORDERS_COLLECTION);
+      const finalOrder = {
+        ...orderData,
+        createdAt: serverTimestamp()
+      };
+      const docRef = await addDoc(ordersRef, finalOrder);
+      return docRef.id;
+    } catch (error) {
+      console.error("Firestore Service Error (createOrder):", error);
+      throw error;
+    }
   },
 
   updateOrderStatus: async (id, status) => {

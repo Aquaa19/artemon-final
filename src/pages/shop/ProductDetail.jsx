@@ -4,11 +4,17 @@ import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, ShoppingCart, Star, User, BadgeCheck, Loader2, AlertCircle 
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
 import { firestoreService } from '../../services/db';
+import { flyToCart } from '../../utils/animations';
 
 export default function ProductDetail() {
-  const { id } = useParams();
+  /**
+   * We now extract both 'slug' and 'id' from the URL.
+   * The 'id' remains the source of truth for Firestore queries.
+   */
+  const { slug, id } = useParams(); 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +26,7 @@ export default function ProductDetail() {
     const fetchProductData = async () => {
       setLoading(true);
       try {
+        // Fetching by the unique ID extracted from the descriptive URL
         const prodData = await firestoreService.getProductById(id);
 
         if (prodData) {
@@ -40,8 +47,11 @@ export default function ProductDetail() {
     fetchProductData();
   }, [id]);
 
-  const handleAddToCart = () => {
-    if (product) addToCart(product, quantity);
+  const handleAddToCart = (e) => {
+    if (product) {
+      flyToCart(e);
+      addToCart(product, quantity);
+    }
   };
   
   const scrollToReviews = () => reviewsRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,24 +79,35 @@ export default function ProductDetail() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 pb-12">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen bg-gray-50 pt-24 pb-12"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Link to="/shop" className="inline-flex items-center text-gray-500 hover:text-indigo-600 mb-8 font-bold transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Collection
         </Link>
 
         <div className="bg-white rounded-[3rem] p-6 lg:p-10 shadow-sm border border-gray-100 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 mb-12">
-          {/* Left: Image - Background changed to bg-white for seamless blending */}
+          {/* Left: Image Container with Shared Element LayoutId */}
           <div className="relative aspect-square bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 group flex items-center justify-center p-8">
-            <img 
+            <motion.img 
+              layoutId={`product-image-${product.id}`}
               src={product.image || "https://placehold.co/600x600?text=No+Image"} 
               alt={product.name}
-              className="max-w-full max-h-full object-contain transition-transform duration-700 group-hover:scale-105"
+              className="max-w-full max-h-full object-contain"
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
             />
           </div>
 
           {/* Right: Info */}
-          <div className="flex flex-col justify-center">
+          <motion.div 
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-col justify-center"
+          >
             <div className="flex flex-wrap items-center gap-4 mb-4">
               <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold uppercase tracking-wider">
                 {product.category}
@@ -114,18 +135,24 @@ export default function ProductDetail() {
                 <span className="w-12 text-center font-black text-gray-900 text-lg">{quantity}</span>
                 <button onClick={() => setQuantity(q => q + 1)} className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-xl">+</button>
               </div>
-              <button onClick={handleAddToCart} className="flex-1 bg-indigo-600 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all">
+              <button 
+                onClick={handleAddToCart} 
+                className="flex-1 bg-indigo-600 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
                 <ShoppingCart className="w-6 h-6" /> Add to Cart
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Reviews Section */}
         <div ref={reviewsRef} className="bg-white rounded-[3rem] p-8 lg:p-12 shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-10">
             <h2 className="text-3xl font-black text-gray-900">Customer Reviews</h2>
-            <Link to={`/product/${id}/write-review`} className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-bold hover:bg-indigo-100 transition-colors">
+            <Link 
+              to={`/product/${slug}/${id}/write-review`} // Updated for slug-based structure
+              className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-bold hover:bg-indigo-100 transition-colors"
+            >
               Write a Review
             </Link>
           </div>
@@ -171,13 +198,16 @@ export default function ProductDetail() {
                 <Star className="w-8 h-8" />
               </div>
               <p className="text-gray-500 font-bold text-lg mb-6">No reviews yet for this cloud-based toy.</p>
-              <Link to={`/product/${id}/write-review`} className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">
+              <Link 
+                to={`/product/${slug}/${id}/write-review`} 
+                className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all"
+              >
                 Be the first to review!
               </Link>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

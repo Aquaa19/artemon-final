@@ -13,7 +13,7 @@ export default function LoadingScreen2() {
 
   return (
     // CHANGED: 'bg-slate-50' -> 'bg-white/60 backdrop-blur-xl' for the glassy effect
-    <div className="fixed inset-0 z-[9999] bg-white/60 backdrop-blur-xl flex flex-col items-center justify-center overflow-hidden transition-all duration-500">
+    <div className="fixed inset-0 z-[9999] bg-white/40 backdrop-blur-xl flex flex-col items-center justify-center overflow-hidden transition-all duration-500">
       
       {/* 1. Ambient Background Glows (Made slightly more transparent for glass effect) */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-200/30 rounded-full blur-3xl animate-pulse"></div>

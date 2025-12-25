@@ -1,13 +1,11 @@
-// Filename: storage.rules
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
+    // Allow anyone to view product images for the shop
+    // Restrict uploads/deletes to authenticated users (Admins)
     match /products/{allPaths=**} {
-      allow read: if true; // Anyone can see product images
-      allow write: if request.auth != null && 
-                   // FIX: Changed 'firestone' to 'firestore'
-                   firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }

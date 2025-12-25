@@ -9,7 +9,7 @@ export default function PublicLayout() {
   return (
     // Wrap entire layout in the provider
     <ProductModalProvider>
-      <div className="min-h-screen flex flex-col bg-gray-50">
+      <div className="min-h-screen flex flex-col bg-transparent">
         <Navbar />
         <main className="flex-grow">
           <Outlet /> {/* This renders the child page (Home, Shop, etc.) */}

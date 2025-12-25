@@ -5,16 +5,16 @@ import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, LogIn, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth(); // Added loginWithGoogle
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect after login (to where they were going, or shop)
   const from = location.state?.from || '/shop';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false); // New loader for Google
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -27,11 +27,10 @@ export default function Login() {
       navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);
-      // Firebase specific error mapping
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError('Invalid email or password.');
       } else if (err.code === 'auth/too-many-requests') {
-        setError('Account temporarily locked due to many failed attempts. Try later.');
+        setError('Account temporarily locked. Try later.');
       } else {
         setError('Failed to log in. Please check your credentials.');
       }
@@ -40,10 +39,24 @@ export default function Login() {
     }
   };
 
+  // --- NEW: Google Login Handler ---
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    setError('');
+    try {
+      await loginWithGoogle();
+      navigate(from, { replace: true });
+    } catch (err) {
+      console.error("Google login error:", err);
+      setError('Could not connect to Google. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 pt-20">
       <div className="max-w-md w-full">
-        {/* Branding */}
         <div className="text-center mb-10">
           <div className="inline-flex p-3 rounded-2xl bg-indigo-600 text-white shadow-lg mb-4">
             <Sparkles className="w-8 h-8" />
@@ -96,9 +109,9 @@ export default function Login() {
             </div>
 
             <button 
-              disabled={loading} 
+              disabled={loading || googleLoading} 
               type="submit"
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
             >
               {loading ? (
                 <Loader2 className="animate-spin w-5 h-5" />
@@ -107,6 +120,33 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-100"></span>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white text-gray-400 font-bold uppercase tracking-wider">Or continue with</span>
+            </div>
+          </div>
+
+          {/* Google Button */}
+          <button
+            type="button"
+            disabled={loading || googleLoading}
+            onClick={handleGoogleLogin}
+            className="w-full py-4 bg-white border-2 border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/30 text-gray-700 font-bold rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+          >
+            {googleLoading ? (
+              <Loader2 className="animate-spin w-5 h-5" />
+            ) : (
+              <>
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+                Sign in with Google
+              </>
+            )}
+          </button>
         </div>
 
         <p className="text-center mt-8 text-gray-500 font-medium">

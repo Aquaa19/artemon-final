@@ -1,11 +1,14 @@
 // Filename: src/pages/admin/Users.jsx
 import { useEffect, useState } from 'react';
 import { Users as UsersIcon, Trash2, Shield, Loader2 } from 'lucide-react';
-import { firestoreService } from '../../services/db'; // Import cloud service
+import { firestoreService } from '../../services/db';
+import { useAuth } from '../../context/AuthContext'; // Use the new auth method
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null); // Local state for button loading
+  const { deleteUserPermanently } = useAuth();
 
   useEffect(() => {
     fetchUsers();
@@ -13,7 +16,6 @@ export default function Users() {
 
   const fetchUsers = async () => {
     try {
-      // Fetch users directly from Firestore collection
       const data = await firestoreService.getAllUsers();
       setUsers(data || []);
     } catch (err) {
@@ -23,15 +25,25 @@ export default function Users() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to remove this user from the database? This will not delete their Auth account but will remove their profile.")) return;
+  const handleDelete = async (user) => {
+    const confirmMessage = `Are you sure you want to permanently delete ${user.displayName || user.email}? 
+    This will revoke their current session and delete their Auth account and Firestore profile.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setDeletingId(user.id);
     try {
-      // We use the document ID (UID) to delete the Firestore profile
-      await firestoreService.deleteUser(id); 
-      setUsers(prev => prev.filter(u => u.id !== id));
+      // Professional: Call the Cloud Function that handles the 3-step wipe
+      await deleteUserPermanently(user.id); 
+      
+      // Update UI immediately
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      alert("User and sessions successfully wiped.");
     } catch (err) {
-      console.error(err);
-      alert("Failed to delete user profile from Firestore.");
+      console.error("Professional Delete Error:", err);
+      alert("Failed to fully delete user. Ensure you have admin permissions.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -50,7 +62,7 @@ export default function Users() {
         </div>
         <div>
           <h1 className="text-2xl font-black text-gray-900">User Management</h1>
-          <p className="text-gray-500 font-medium">Manage cloud-registered accounts and roles.</p>
+          <p className="text-gray-500 font-medium">Manage cloud-registered accounts, roles, and sessions.</p>
         </div>
       </div>
 
@@ -88,18 +100,22 @@ export default function Users() {
                   )}
                 </td>
                 <td className="p-5 text-sm font-bold text-gray-500">
-                  {/* Convert Firestore Timestamp to readable date */}
                   {user.createdAt?.toDate 
                     ? user.createdAt.toDate().toLocaleDateString() 
                     : new Date(user.createdAt).toLocaleDateString()}
                 </td>
                 <td className="p-5 text-right">
                   <button 
-                    onClick={() => handleDelete(user.id)}
-                    className="p-3 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
-                    title="Remove Profile"
+                    onClick={() => handleDelete(user)}
+                    disabled={deletingId === user.id}
+                    className="p-3 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all disabled:opacity-50"
+                    title="Delete User Permanently"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    {deletingId === user.id ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-5 h-5" />
+                    )}
                   </button>
                 </td>
               </tr>
