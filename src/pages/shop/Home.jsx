@@ -1,7 +1,9 @@
-// Filename: src/pages/shop/Home.jsx
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Truck, Star, Gift, Sparkles, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { 
+  ArrowRight, ShieldCheck, Truck, Star, Gift, 
+  Sparkles, ChevronLeft, ChevronRight, Layers 
+} from 'lucide-react';
 import ProductCard from '../../components/product/ProductCard';
 import { firestoreService } from '../../services/db';
 
@@ -125,7 +127,11 @@ export default function Home() {
       {/* Trust Strip */}
       <div className="max-w-5xl mx-auto px-4 relative -mt-24 z-20">
         <div className="bg-white rounded-[3rem] shadow-xl p-8 grid grid-cols-1 md:grid-cols-3 gap-8 items-center border border-white/50">
-          {[ { icon: ShieldCheck, color: "text-green-600", bg: "bg-green-50", title: "Safety Certified", desc: "100% Non-toxic materials" }, { icon: Truck, color: "text-blue-600", bg: "bg-blue-50", title: "Fast Delivery", desc: "Free shipping over ₹500" }, { icon: Star, color: "text-amber-500", bg: "bg-amber-50", title: "Parents' Choice", desc: "Trusted by 10k+ families" } ].map((item, idx) => (
+          {[ 
+            { icon: ShieldCheck, color: "text-green-600", bg: "bg-green-50", title: "Safety Certified", desc: "100% Non-toxic materials" }, 
+            { icon: Truck, color: "text-blue-600", bg: "bg-blue-50", title: "Fast Delivery", desc: "Free shipping over ₹500" }, 
+            { icon: Star, color: "text-amber-500", bg: "bg-amber-50", title: "Parents' Choice", desc: "Trusted by 10k+ families" } 
+          ].map((item, idx) => (
             <div key={idx} className="flex flex-col items-center text-center group cursor-default">
               <div className={`w-16 h-16 rounded-2xl ${item.bg} ${item.color} flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110 shadow-sm`}><item.icon className="w-8 h-8" /></div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">{item.title}</h3>
@@ -135,7 +141,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Optimized Trending Section - ADDED TOUR TARGET CLASS */}
+      {/* Trending Wonders Section */}
+      {/* Anchor class always available on the outer wrapper for the tour to identify the section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 tour-target-trending">
         <div 
           className="bg-secondary rounded-[3rem] p-8 lg:p-16 relative overflow-hidden shadow-2xl"

@@ -2,7 +2,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useEffect } from 'react';
-import Sidebar from '../components/layout/Sidebar'; // <--- Import the new component
+import Sidebar from '../components/layout/Sidebar';
 
 export default function AdminLayout() {
   const { user } = useAuth();
@@ -19,10 +19,20 @@ export default function AdminLayout() {
   // Prevent render if not admin
   if (!user || user.role !== 'admin') return null;
 
+  /**
+   * Helper to determine the header title based on current path
+   */
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path === '/admin') return 'Dashboard Overview';
+    if (path === '/admin/subscribers') return 'Newsletter Community';
+    return path.split('/').pop();
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
       
-      {/* Use the Sidebar Component */}
+      {/* Persistent Sidebar */}
       <Sidebar />
 
       {/* Main Content Wrapper */}
@@ -30,7 +40,7 @@ export default function AdminLayout() {
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-gray-200 flex justify-between items-center px-8 sticky top-0 z-10 shadow-sm">
           <h2 className="text-lg font-bold text-gray-700 capitalize">
-            {location.pathname === '/admin' ? 'Dashboard' : location.pathname.split('/').pop()}
+            {getPageTitle()}
           </h2>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
@@ -43,7 +53,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        {/* Page Content */}
+        {/* Dynamic Page Content */}
         <main className="p-8">
           <Outlet />
         </main>

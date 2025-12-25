@@ -8,12 +8,14 @@ import { firestoreService } from '../../services/db';
 
 export default function Checkout() {
   const { cartItems, getCartTotal, clearCart, buyNowItem, clearBuyNow } = useCart();
-  const { user, updateUserAddress } = useAuth(); // Added updateUserAddress
+  const { user, updateUserAddress } = useAuth();
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
-  const [isLocked, setIsLocked] = useState(false); // Handle address locking
+  const [isLocked, setIsLocked] = useState(false);
+  // Track if order was successful to prevent the useEffect guard from firing
+  const [isOrderComplete, setIsOrderComplete] = useState(false);
 
   const isDirectBuy = !!buyNowItem;
   const displayItems = isDirectBuy ? [buyNowItem] : cartItems;
@@ -30,16 +32,18 @@ export default function Checkout() {
   });
 
   useEffect(() => {
+    // If we just finished an order or are currently processing, don't redirect
+    if (isOrderComplete || loading) return;
+
     if (!isDirectBuy && cartItems.length === 0) {
       navigate('/shop', { replace: true });
     }
-    // Auto-lock if profile address exists
+    
     if (user?.address) {
       setIsLocked(true);
     }
-  }, [cartItems, isDirectBuy, navigate, user]);
+  }, [cartItems, isDirectBuy, navigate, user, isOrderComplete, loading]);
 
-  // GPS Live Location Feature
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser.");
@@ -51,7 +55,6 @@ export default function Checkout() {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-          // Reverse geocoding (OpenStreetMap API - Free/No Key needed)
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
           );
@@ -80,13 +83,10 @@ export default function Checkout() {
     );
   };
 
-  if (!isDirectBuy && cartItems.length === 0) return null;
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
-    // Auto-sync address to profile if missing
     if (!user?.address) {
       try {
         await updateUserAddress({
@@ -117,16 +117,26 @@ export default function Checkout() {
 
     try {
       await firestoreService.createOrder(orderData);
-      if (isDirectBuy) clearBuyNow();
-      else await clearCart();
+      
+      // Lock the redirect guard before clearing data
+      setIsOrderComplete(true);
+
+      if (isDirectBuy) {
+        clearBuyNow();
+      } else {
+        await clearCart();
+      }
+      
+      // Small delay ensures state updates don't clash with navigation
       navigate('/order-success');
     } catch (err) {
       console.error("Order processing failed:", err);
       alert('We could not process your order. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
+
+  if (!isOrderComplete && !isDirectBuy && cartItems.length === 0) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 pt-28 pb-10 px-4">
@@ -138,7 +148,6 @@ export default function Checkout() {
               <h2 className="text-xl font-black flex items-center gap-2">
                 <Truck className="w-6 h-6 text-indigo-600"/> Shipping Information
               </h2>
-              {/* Toggle to unlock/edit */}
               {user?.address && (
                 <button 
                   type="button"

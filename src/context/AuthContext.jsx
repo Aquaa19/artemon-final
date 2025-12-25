@@ -6,7 +6,7 @@ import {
   signOut, 
   signInWithPopup 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions, googleProvider } from '../services/firebase'; 
 
@@ -23,11 +23,10 @@ export function AuthProvider({ children }) {
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
 
+          // CRITICAL: Prevent force sign-out loop if document hasn't propagated yet
           if (!userDoc.exists()) {
-            console.warn("User profile not found. Force signing out...");
-            await signOut(auth);
-            setUser(null);
-            return;
+            console.warn("Firestore profile pending...");
+            return; 
           }
 
           const idTokenResult = await firebaseUser.getIdTokenResult();
@@ -54,29 +53,22 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  // --- NEW: Update User Address logic ---
-  const updateUserAddress = async (addressData) => {
+  // UPDATED: Now dynamically handles address AND birthday fields
+  const updateUserAddress = async (profileData) => {
     if (!user) return;
     try {
       const userRef = doc(db, 'users', user.uid);
-      // Sync to Firestore
-      await updateDoc(userRef, {
-        address: addressData.address,
-        city: addressData.city,
-        zip: addressData.zip,
-        country: addressData.country || 'India'
-      });
+      
+      // Update Firestore
+      await updateDoc(userRef, profileData);
 
-      // Update local state to trigger UI updates in Checkout/Profile
+      // Sync local state immediately for UI responsiveness
       setUser(prev => ({
         ...prev,
-        address: addressData.address,
-        city: addressData.city,
-        zip: addressData.zip,
-        country: addressData.country || 'India'
+        ...profileData
       }));
     } catch (error) {
-      console.error("Failed to update address in profile:", error);
+      console.error("Failed to update profile:", error);
       throw error;
     }
   };
@@ -89,17 +81,22 @@ export function AuthProvider({ children }) {
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       const userDoc = await getDoc(userDocRef);
 
+      // FIXED: Ensure new Google users have a Firestore profile BEFORE redirecting
       if (!userDoc.exists()) {
-        await setDoc(userDocRef, {
+        const initialData = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
           role: 'customer',
-          createdAt: new Date(),
+          createdAt: serverTimestamp(),
           cart: [],
           wishlist: []
-        });
+        };
+        await setDoc(userDocRef, initialData);
+        
+        // Update state manually to break the loading loop
+        setUser(initialData);
       }
       return firebaseUser;
     } catch (error) {
@@ -113,11 +110,6 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => signOut(auth);
-
-  const deleteUserPermanently = async (targetUid) => {
-    const adminDeleteFunc = httpsCallable(functions, 'adminDeleteUser');
-    return await adminDeleteFunc({ targetUid });
-  };
 
   const requestOTP = async (email) => {
     const sendOTPFunction = httpsCallable(functions, 'sendOTP');
@@ -141,8 +133,7 @@ export function AuthProvider({ children }) {
     logout, 
     requestOTP, 
     verifyAndRegister,
-    updateUserAddress, // NEW: Exported for Checkout/Profile
-    deleteUserPermanently,
+    updateUserAddress,
     isAdmin: user?.role === 'admin' 
   };
 

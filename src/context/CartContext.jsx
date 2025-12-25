@@ -15,17 +15,39 @@ export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [cartLoading, setCartLoading] = useState(true);
-  
-  // NEW: Direct Buy State
   const [buyNowItem, setBuyNowItem] = useState(null);
 
-  // --- Initialization ---
+  // --- Syncing & Initialization ---
   useEffect(() => {
     if (authLoading) return;
 
-    const loadData = async () => {
+    const loadAndSyncData = async () => {
       if (user) {
-        setCartItems(user.cart || []);
+        const storedCart = localStorage.getItem('cart');
+        const guestCart = storedCart ? JSON.parse(storedCart) : [];
+
+        // Logic: Sync guest cart to Firestore on login
+        // This ensures guest items trigger the Abandoned Cart Cloud Function
+        if (guestCart.length > 0) {
+          const mergedCart = [...(user.cart || [])];
+          
+          guestCart.forEach(guestItem => {
+            const existing = mergedCart.find(i => i.id === guestItem.id);
+            if (existing) {
+              existing.quantity += guestItem.quantity;
+            } else {
+              mergedCart.push(guestItem);
+            }
+          });
+
+          const userRef = doc(db, 'users', user.uid);
+          await updateDoc(userRef, { cart: mergedCart });
+          setCartItems(mergedCart);
+          localStorage.removeItem('cart'); // Clear local once synced
+        } else {
+          setCartItems(user.cart || []);
+        }
+        
         setWishlist(user.wishlist || []);
       } else {
         const storedCart = localStorage.getItem('cart');
@@ -36,20 +58,18 @@ export function CartProvider({ children }) {
       setCartLoading(false);
     };
 
-    loadData();
+    loadAndSyncData();
   }, [user, authLoading]);
 
-  // --- Direct Buy Logic (NEW) ---
   const handleBuyNow = (product, quantity = 1) => {
     setBuyNowItem({ ...product, quantity });
   };
 
   const clearBuyNow = () => setBuyNowItem(null);
 
-  // --- Cart Operations ---
+  // --- Cart Operations (Synced to Firestore for Cloud Triggers) ---
   const addToCart = async (product, quantity = 1) => {
     const newItem = { ...product, quantity };
-    
     let updatedCart;
     const existingItem = cartItems.find(i => i.id === product.id);
     
@@ -65,6 +85,7 @@ export function CartProvider({ children }) {
 
     if (user) {
       const userRef = doc(db, 'users', user.uid);
+      // Triggering onCartUpdated in index.ts
       await updateDoc(userRef, { cart: updatedCart });
     } else {
       localStorage.setItem('cart', JSON.stringify(updatedCart));
@@ -111,7 +132,7 @@ export function CartProvider({ children }) {
     <CartContext.Provider value={{ 
       cartItems, addToCart, removeFromCart, getCartCount, getCartTotal, clearCart, cartLoading,
       wishlist, toggleWishlist, isInWishlist,
-      buyNowItem, handleBuyNow, clearBuyNow // Exported new items
+      buyNowItem, handleBuyNow, clearBuyNow
     }}>
       {children}
     </CartContext.Provider>

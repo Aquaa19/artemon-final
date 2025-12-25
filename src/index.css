@@ -102,41 +102,63 @@
     animation: loading-bar 1.5s ease-in-out infinite;
   }
 
-  /* =========================================
-     WELCOME TOUR SYSTEM (NEW)
-     ========================================= */
+  /* ==========================================================
+     WELCOME TOUR SYSTEM (FLASHLIGHT EFFECT)
+     ========================================================== */
 
-  /* The Dimming Layer with a Spotlight Hole */
+  /* The Dimming Layer with a Sharp Spotlight Hole */
   .tour-overlay {
     position: fixed;
     inset: 0;
     z-index: 9990;
-    background-color: rgba(0, 0, 0, 0.75);
-    /* This creates the 'punch-hole' effect */
+    background-color: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(2px); /* Soft focus on dimmed areas */
+    
+    /* Hard-stops (98% to 100%) create a crisp 'Flashlight' punch-through.
+       This makes highlighted elements like 'Trending' look vibrant and lit up.
+    */
     mask-image: radial-gradient(
       circle var(--tour-hole-size, 0px) at var(--tour-hole-x, 0px) var(--tour-hole-y, 0px),
-      transparent 99%,
+      transparent 98%, 
       black 100%
     );
     -webkit-mask-image: radial-gradient(
       circle var(--tour-hole-size, 0px) at var(--tour-hole-x, 0px) var(--tour-hole-y, 0px),
-      transparent 99%,
+      transparent 98%,
       black 100%
     );
+    
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    pointer-events: none;
+    pointer-events: auto;
   }
 
-  /* Glass Tooltip for the Tour Steps */
+  /* Responsive Glass Tooltip for Tour Steps */
   .tour-tooltip {
-    @apply fixed z-[9995] bg-white rounded-[2rem] p-6 shadow-2xl border border-white/20;
+    @apply fixed z-[9995] bg-white rounded-[2.5rem] p-6 shadow-2xl border border-white/20;
     backdrop-filter: blur(16px) saturate(180%);
-    background-color: rgba(255, 255, 255, 0.95);
-    max-width: 320px;
+    background-color: rgba(255, 255, 255, 0.98);
+    mix-blend-mode: normal; /* Ensures text stays sharp over the dark overlay */
+    transition: top 0.4s ease, left 0.4s ease, bottom 0.4s ease, transform 0.4s ease;
+  }
+
+  .tour-tooltip .lucide {
+    @apply shrink-0;
   }
 
   .tour-dot {
-    @apply h-2 w-2 rounded-full transition-all duration-300;
+    @apply h-1.5 rounded-full transition-all duration-300;
+  }
+
+  /* Mobile Specific Adjustments */
+  @media (max-width: 767px) {
+    .tour-overlay {
+      background-color: rgba(0, 0, 0, 0.92); /* Darker for higher contrast focus */
+    }
+    
+    .tour-tooltip {
+      @apply p-5;
+      margin: 0 10px;
+    }
   }
 }
 

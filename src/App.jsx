@@ -30,6 +30,7 @@ import Inventory from './pages/admin/Inventory';
 import Orders from './pages/admin/Orders';
 import Users from './pages/admin/Users';
 import Reviews from './pages/admin/Reviews';
+import Subscribers from './pages/admin/Subscribers'; // NEW: Added Subscribers page
 
 // Support Pages - UPDATED: Added Terms
 import { 
@@ -118,7 +119,7 @@ function AnimatedRoutes({ setPageLoading }) {
           <Route path="returns" element={<Returns />} />
           <Route path="faq" element={<FAQ />} />
           <Route path="privacy" element={<Privacy />} />
-          <Route path="terms" element={<Terms />} /> {/* NEW ROUTE */}
+          <Route path="terms" element={<Terms />} />
         </Route>
 
         {/* Admin Routes */}
@@ -128,6 +129,7 @@ function AnimatedRoutes({ setPageLoading }) {
           <Route path="orders" element={<Orders />} />
           <Route path="users" element={<Users />} />
           <Route path="reviews" element={<Reviews />} />
+          <Route path="subscribers" element={<Subscribers />} /> {/* NEW: Registered Subscribers route */}
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -11,7 +11,8 @@ import {
   where, 
   orderBy,
   limit,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch // Added for bulk stock updates
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -19,17 +20,37 @@ const PRODUCTS_COLLECTION = 'products';
 const REVIEWS_COLLECTION = 'reviews';
 const USERS_COLLECTION = 'users';
 const ORDERS_COLLECTION = 'orders';
+const SUBSCRIBERS_COLLECTION = 'subscribers';
 
-/**
- * Helper to ensure we always use optimized .webp images for faster loading.
- */
 const optimizeImageUrl = (url) => {
   if (!url) return url;
-  // Replaces .jpg, .jpeg, or .png with .webp (case insensitive)
-  return url.replace(/\.(jpg|jpeg|png)$/i, '.webp');
+  return url.replace(/^http:\/\//i, 'https://').replace(/\.(jpg|jpeg|png)$/i, '.webp');
 };
 
 export const firestoreService = {
+  // --- NEWSLETTER OPERATIONS ---
+  getAllSubscribers: async () => {
+    try {
+      const q = query(
+        collection(db, SUBSCRIBERS_COLLECTION),
+        orderBy('subscribedAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error("Error fetching subscribers:", error);
+      throw error;
+    }
+  },
+
+  deleteSubscriber: async (id) => {
+    const docRef = doc(db, SUBSCRIBERS_COLLECTION, id);
+    return await deleteDoc(docRef);
+  },
+
   // --- PRODUCT OPERATIONS ---
   getProducts: async (filters = {}) => {
     try {
@@ -55,7 +76,6 @@ export const firestoreService = {
 
       const querySnapshot = await getDocs(q);
       
-      // FIXED: Map and transform image paths to .webp
       let products = querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -89,7 +109,7 @@ export const firestoreService = {
     return { 
       id: docSnap.id, 
       ...data,
-      image: optimizeImageUrl(data.image) // FIXED: Transform single product image
+      image: optimizeImageUrl(data.image) 
     };
   },
 
@@ -129,6 +149,12 @@ export const firestoreService = {
     return await deleteDoc(docRef);
   },
 
+  // NEW: Optimized Birthday Storage
+  updateUserProfile: async (userId, data) => {
+    const userRef = doc(db, USERS_COLLECTION, userId);
+    return await updateDoc(userRef, data);
+  },
+
   // --- ORDER OPERATIONS ---
   getAllOrders: async () => {
     try {
@@ -147,15 +173,26 @@ export const firestoreService = {
     }
   },
 
-  createOrder: async (orderData) => {
+  // UPDATED: Create order and clear user cart in one flow
+  createOrder: async (orderData, userId = null) => {
+    const batch = writeBatch(db); // Atomic operation
     try {
       const ordersRef = collection(db, ORDERS_COLLECTION);
       const finalOrder = {
         ...orderData,
         createdAt: serverTimestamp()
       };
-      const docRef = await addDoc(ordersRef, finalOrder);
-      return docRef.id;
+      const newOrderRef = doc(ordersRef);
+      batch.set(newOrderRef, finalOrder);
+
+      // If user is logged in, clear their cloud cart
+      if (userId) {
+        const userRef = doc(db, USERS_COLLECTION, userId);
+        batch.update(userRef, { cart: [] });
+      }
+
+      await batch.commit();
+      return newOrderRef.id;
     } catch (error) {
       console.error("Firestore Service Error (createOrder):", error);
       throw error;
@@ -165,6 +202,12 @@ export const firestoreService = {
   updateOrderStatus: async (id, status) => {
     const docRef = doc(db, ORDERS_COLLECTION, id);
     return await updateDoc(docRef, { status });
+  },
+
+  // NEW: Update Stock Quantities (Triggers Low Stock Alert)
+  updateProductStock: async (productId, newCount) => {
+    const productRef = doc(db, PRODUCTS_COLLECTION, productId);
+    return await updateDoc(productRef, { stockCount: newCount });
   },
 
   // --- REVIEW OPERATIONS ---

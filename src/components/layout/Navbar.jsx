@@ -127,7 +127,7 @@ export default function Navbar() {
               isSearchPage ? 'invisible' : ''
             }`}
           >
-            {/* ADDED TOUR TARGET CLASS */}
+            {/* DESKTOP SEARCH TARGET */}
             <div
               onClick={() => navigate('/search')}
               className={`relative rounded-full transition-all border cursor-text group tour-target-search ${searchBg}`}
@@ -154,7 +154,7 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3 shrink-0">
-            {/* ADDED TOUR TARGET CLASS */}
+            {/* DESKTOP FAVORITES TARGET */}
             <Link
               to="/favorites"
               className={`p-2 rounded-full transition-all relative group tour-target-favorites ${iconColor} hover:bg-black/5`}
@@ -239,12 +239,14 @@ export default function Navbar() {
 
           <div className="md:hidden flex items-center gap-3">
             {!isSearchPage && (
-              <Link to="/search" className={`p-1 rounded-full ${iconColor}`}>
+              /* MOBILE SEARCH TARGET */
+              <Link to="/search" className={`p-1 rounded-full tour-target-search ${iconColor}`}>
                 <Search className="h-6 w-6" />
               </Link>
             )}
 
-            <Link to="/favorites" className={`relative ${iconColor}`}>
+            {/* MOBILE FAVORITES TARGET */}
+            <Link to="/favorites" className={`relative tour-target-favorites ${iconColor}`}>
               <Heart className="h-6 w-6" />
               {wishlist.length > 0 && (
                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-[10px] font-bold text-white flex items-center justify-center rounded-full shadow-sm">

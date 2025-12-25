@@ -7,7 +7,8 @@ import {
   ShoppingBag, 
   Users, 
   LogOut, 
-  MessageSquare 
+  MessageSquare,
+  Mail // Added for Subscribers
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -24,8 +25,10 @@ export default function Sidebar() {
     { icon: LayoutDashboard, label: 'Overview', path: '/admin' },
     { icon: Package, label: 'Inventory', path: '/admin/inventory' },
     { icon: ShoppingBag, label: 'Orders', path: '/admin/orders' },
-    { icon: MessageSquare, label: 'Reviews', path: '/admin/reviews' }, // NEW: Review Moderation Link
+    { icon: MessageSquare, label: 'Reviews', path: '/admin/reviews' },
     { icon: Users, label: 'Customers', path: '/admin/users' },
+    // NEW: Newsletter Subscriber Link
+    { icon: Mail, label: 'Subscribers', path: '/admin/subscribers' },
   ];
 
   return (

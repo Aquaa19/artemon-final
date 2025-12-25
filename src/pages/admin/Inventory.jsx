@@ -1,6 +1,6 @@
 // Filename: src/pages/admin/Inventory.jsx
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Pencil, Package, X, Upload, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Pencil, Package, X, Upload, Loader2, AlertCircle } from 'lucide-react';
 import { firestoreService } from '../../services/db';
 import { storage } from '../../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -9,7 +9,6 @@ export default function Inventory() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Form & Upload State
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -22,6 +21,7 @@ export default function Inventory() {
     category: 'educational',
     description: '',
     image: '',
+    stockCount: '', // NEW: Integrated with Low Stock Alerts
     isTrending: false
   });
 
@@ -60,8 +60,6 @@ export default function Inventory() {
 
     try {
       let imageUrl = formData.image;
-
-      // If a new file was selected, upload it first
       if (imageFile) {
         imageUrl = await uploadImage(imageFile);
       }
@@ -69,6 +67,7 @@ export default function Inventory() {
       const finalData = {
         ...formData,
         price: parseFloat(formData.price),
+        stockCount: parseInt(formData.stockCount) || 0, // NEW
         image: imageUrl
       };
 
@@ -84,7 +83,7 @@ export default function Inventory() {
       fetchProducts();
     } catch (err) {
       console.error(err);
-      alert("Error saving product. Check console for details.");
+      alert("Error saving product.");
     } finally {
       setUploading(false);
     }
@@ -110,6 +109,7 @@ export default function Inventory() {
       category: product.category,
       description: product.description || '',
       image: product.image,
+      stockCount: product.stockCount || 0, // NEW
       isTrending: !!product.isTrending
     });
     setImagePreview(product.image);
@@ -121,7 +121,7 @@ export default function Inventory() {
     setEditingId(null);
     setImageFile(null);
     setImagePreview('');
-    setFormData({ name: '', price: '', category: 'educational', description: '', image: '', isTrending: false });
+    setFormData({ name: '', price: '', category: 'educational', description: '', image: '', stockCount: '', isTrending: false });
   };
 
   if (loading) return (
@@ -151,12 +151,11 @@ export default function Inventory() {
       </div>
 
       {isAdding && (
-        <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 mb-10">
+        <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 mb-10 animate-in fade-in slide-in-from-top-4 duration-300">
           <h2 className="text-xl font-bold mb-6">{editingId ? 'Edit Toy Details' : 'Add New Toy to Store'}</h2>
           
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
-              {/* Image Upload Area */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-700">Product Image</label>
                 <div 
@@ -190,15 +189,21 @@ export default function Inventory() {
                     value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
-                  <select className="w-full p-3 rounded-xl border border-gray-200 outline-none bg-white"
-                    value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                    <option value="educational">Educational</option>
-                    <option value="creative">Creative</option>
-                    <option value="action">Action Figures</option>
-                    <option value="plushies">Plushies</option>
-                  </select>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Stock Quantity</label>
+                  <input required type="number" className="w-full p-3 rounded-xl border border-gray-200 outline-none focus:border-indigo-500" 
+                    value={formData.stockCount} onChange={e => setFormData({...formData, stockCount: e.target.value})} />
                 </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
+                <select className="w-full p-3 rounded-xl border border-gray-200 outline-none bg-white"
+                  value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                  <option value="educational">Educational</option>
+                  <option value="creative">Creative</option>
+                  <option value="action">Action Figures</option>
+                  <option value="plushies">Plushies</option>
+                </select>
               </div>
               
               <div>
@@ -208,9 +213,9 @@ export default function Inventory() {
               </div>
 
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="trending" className="w-5 h-5 accent-indigo-600" 
+                <input type="checkbox" id="trending" className="w-5 h-5 accent-indigo-600 cursor-pointer" 
                   checked={formData.isTrending} onChange={e => setFormData({...formData, isTrending: e.target.checked})} />
-                <label htmlFor="trending" className="text-sm font-bold text-gray-700">Show on Trending Section</label>
+                <label htmlFor="trending" className="text-sm font-bold text-gray-700 cursor-pointer">Show on Trending Section</label>
               </div>
             </div>
 
@@ -218,7 +223,7 @@ export default function Inventory() {
               <button 
                 type="submit" 
                 disabled={uploading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
               >
                 {uploading ? <><Loader2 className="animate-spin" /> Processing...</> : (editingId ? 'Save Changes' : 'Push to Cloud Store')}
               </button>
@@ -227,36 +232,63 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Product Table */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b border-gray-100">
-            <tr>
-              <th className="p-5 text-xs font-bold text-gray-500 uppercase">Product</th>
-              <th className="p-5 text-xs font-bold text-gray-500 uppercase">Price</th>
-              <th className="p-5 text-xs font-bold text-gray-500 uppercase">Category</th>
-              <th className="p-5 text-xs font-bold text-gray-500 uppercase text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {products.map(product => (
-              <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="p-5 flex items-center gap-4">
-                  <img src={product.image} alt="" className="w-12 h-12 rounded-lg object-contain bg-white border border-gray-100"/>
-                  <span className="font-bold text-gray-900">{product.name}</span>
-                </td>
-                <td className="p-5 text-gray-600">₹{product.price.toLocaleString()}</td>
-                <td className="p-5"><span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-[10px] font-bold uppercase">{product.category}</span></td>
-                <td className="p-5 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => handleEdit(product)} className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"><Pencil className="w-5 h-5" /></button>
-                    <button onClick={() => handleDelete(product.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Product</th>
+                <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Price</th>
+                <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Stock</th>
+                <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</th>
+                <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {products.map(product => {
+                const isLowStock = product.stockCount < 5; // NEW: Visual match for backend logic
+                
+                return (
+                  <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="p-5 flex items-center gap-4">
+                      <img src={product.image} alt="" className="w-12 h-12 rounded-lg object-contain bg-white border border-gray-100 shadow-sm"/>
+                      <span className="font-bold text-gray-900">{product.name}</span>
+                    </td>
+                    <td className="p-5 text-gray-600 font-bold">₹{product.price.toLocaleString()}</td>
+                    <td className="p-5">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className={`font-black text-sm ${isLowStock ? 'text-red-500' : 'text-gray-700'}`}>
+                          {product.stockCount}
+                        </span>
+                        {isLowStock && (
+                          <div className="flex items-center gap-1 text-[8px] font-black text-red-400 uppercase animate-pulse">
+                            <AlertCircle className="w-2.5 h-2.5" /> Low Stock
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-5">
+                      <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-[10px] font-black uppercase border border-indigo-100">
+                        {product.category}
+                      </span>
+                    </td>
+                    <td className="p-5 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => handleEdit(product)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
+                          <Pencil className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => handleDelete(product.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
