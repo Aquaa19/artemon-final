@@ -31,8 +31,10 @@ import Orders from './pages/admin/Orders';
 import Users from './pages/admin/Users';
 import Reviews from './pages/admin/Reviews';
 
-// Support Pages
-import { TrackOrder, ShippingInfo, Returns, FAQ, Privacy } from './pages/support/SupportPages';
+// Support Pages - UPDATED: Added Terms
+import { 
+  TrackOrder, ShippingInfo, Returns, FAQ, Privacy, Terms 
+} from './pages/support/SupportPages';
 
 // Components
 import ScrollToTop from './components/layout/ScrollToTop';
@@ -96,7 +98,6 @@ function AnimatedRoutes({ setPageLoading }) {
           <Route path="trending" element={<Shop trendingOnly={true} />} />
           <Route path="new-arrivals" element={<Shop newArrivalsOnly={true} />} />
           
-          {/* We will update the product path in the next step to handle slugs */}
           <Route path="product/:slug/:id" element={<ProductDetail />} />
           <Route path="product/:slug/:id/write-review" element={<WriteReview />} />
           
@@ -117,6 +118,7 @@ function AnimatedRoutes({ setPageLoading }) {
           <Route path="returns" element={<Returns />} />
           <Route path="faq" element={<FAQ />} />
           <Route path="privacy" element={<Privacy />} />
+          <Route path="terms" element={<Terms />} /> {/* NEW ROUTE */}
         </Route>
 
         {/* Admin Routes */}

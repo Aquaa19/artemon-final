@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 
 const CartContext = createContext();
 
@@ -15,6 +15,9 @@ export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [cartLoading, setCartLoading] = useState(true);
+  
+  // NEW: Direct Buy State
+  const [buyNowItem, setBuyNowItem] = useState(null);
 
   // --- Initialization ---
   useEffect(() => {
@@ -36,11 +39,17 @@ export function CartProvider({ children }) {
     loadData();
   }, [user, authLoading]);
 
+  // --- Direct Buy Logic (NEW) ---
+  const handleBuyNow = (product, quantity = 1) => {
+    setBuyNowItem({ ...product, quantity });
+  };
+
+  const clearBuyNow = () => setBuyNowItem(null);
+
   // --- Cart Operations ---
   const addToCart = async (product, quantity = 1) => {
     const newItem = { ...product, quantity };
     
-    // We update state immediately for snappy UI feedback
     let updatedCart;
     const existingItem = cartItems.find(i => i.id === product.id);
     
@@ -101,7 +110,8 @@ export function CartProvider({ children }) {
   return (
     <CartContext.Provider value={{ 
       cartItems, addToCart, removeFromCart, getCartCount, getCartTotal, clearCart, cartLoading,
-      wishlist, toggleWishlist, isInWishlist
+      wishlist, toggleWishlist, isInWishlist,
+      buyNowItem, handleBuyNow, clearBuyNow // Exported new items
     }}>
       {children}
     </CartContext.Provider>

@@ -6,7 +6,7 @@ import {
   signOut, 
   signInWithPopup 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions, googleProvider } from '../services/firebase'; 
 
@@ -17,11 +17,9 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for Auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // 1. Fetch User Profile from Firestore
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
 
@@ -32,7 +30,6 @@ export function AuthProvider({ children }) {
             return;
           }
 
-          // 2. Fetch Custom Claims (Admin status) from ID Token
           const idTokenResult = await firebaseUser.getIdTokenResult();
           const userData = userDoc.data();
           
@@ -40,7 +37,6 @@ export function AuthProvider({ children }) {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
-            // Prioritize custom claims for security, fallback to Firestore data
             role: idTokenResult.claims.role || userData.role || 'customer',
             ...userData
           });
@@ -58,24 +54,48 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  // --- NEW: Google Sign-In Logic ---
+  // --- NEW: Update User Address logic ---
+  const updateUserAddress = async (addressData) => {
+    if (!user) return;
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      // Sync to Firestore
+      await updateDoc(userRef, {
+        address: addressData.address,
+        city: addressData.city,
+        zip: addressData.zip,
+        country: addressData.country || 'India'
+      });
+
+      // Update local state to trigger UI updates in Checkout/Profile
+      setUser(prev => ({
+        ...prev,
+        address: addressData.address,
+        city: addressData.city,
+        zip: addressData.zip,
+        country: addressData.country || 'India'
+      }));
+    } catch (error) {
+      console.error("Failed to update address in profile:", error);
+      throw error;
+    }
+  };
+
   const loginWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
 
-      // Check if user document exists in Firestore
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       const userDoc = await getDoc(userDocRef);
 
-      // If this is a new user, create their Firestore profile
       if (!userDoc.exists()) {
         await setDoc(userDocRef, {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
-          role: 'customer', // Default role for all new signups
+          role: 'customer',
           createdAt: new Date(),
           cart: [],
           wishlist: []
@@ -117,10 +137,11 @@ export function AuthProvider({ children }) {
     user, 
     loading, 
     login, 
-    loginWithGoogle, // Exported for use in Login/Register pages
+    loginWithGoogle, 
     logout, 
     requestOTP, 
     verifyAndRegister,
+    updateUserAddress, // NEW: Exported for Checkout/Profile
     deleteUserPermanently,
     isAdmin: user?.role === 'admin' 
   };

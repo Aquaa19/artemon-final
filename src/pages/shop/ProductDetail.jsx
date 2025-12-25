@@ -1,8 +1,8 @@
 // Filename: src/pages/shop/ProductDetail.jsx
 import { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, ShoppingCart, Star, User, BadgeCheck, Loader2, AlertCircle 
+  ArrowLeft, ShoppingCart, Star, User, BadgeCheck, Loader2, AlertCircle, Zap 
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
@@ -10,23 +10,19 @@ import { firestoreService } from '../../services/db';
 import { flyToCart } from '../../utils/animations';
 
 export default function ProductDetail() {
-  /**
-   * We now extract both 'slug' and 'id' from the URL.
-   * The 'id' remains the source of truth for Firestore queries.
-   */
   const { slug, id } = useParams(); 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const { addToCart } = useCart();
+  const { addToCart, handleBuyNow } = useCart();
+  const navigate = useNavigate();
   const reviewsRef = useRef(null);
 
   useEffect(() => {
     const fetchProductData = async () => {
       setLoading(true);
       try {
-        // Fetching by the unique ID extracted from the descriptive URL
         const prodData = await firestoreService.getProductById(id);
 
         if (prodData) {
@@ -49,8 +45,16 @@ export default function ProductDetail() {
 
   const handleAddToCart = (e) => {
     if (product) {
+      // Passes the click event to calculate the animation path to the cart
       flyToCart(e);
       addToCart(product, quantity);
+    }
+  };
+
+  const onDirectBuy = () => {
+    if (product) {
+      handleBuyNow(product, quantity);
+      navigate('/checkout');
     }
   };
   
@@ -89,8 +93,9 @@ export default function ProductDetail() {
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Collection
         </Link>
 
+        {/* Main Product Section: The animation uses this container to locate the image */}
         <div className="bg-white rounded-[3rem] p-6 lg:p-10 shadow-sm border border-gray-100 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 mb-12">
-          {/* Left: Image Container with Shared Element LayoutId */}
+          
           <div className="relative aspect-square bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 group flex items-center justify-center p-8">
             <motion.img 
               layoutId={`product-image-${product.id}`}
@@ -101,7 +106,6 @@ export default function ProductDetail() {
             />
           </div>
 
-          {/* Right: Info */}
           <motion.div 
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -129,15 +133,25 @@ export default function ProductDetail() {
               <span className="text-4xl font-black text-gray-900">₹{product.price?.toLocaleString()}</span>
             </div>
 
-            <div className="flex gap-4 mb-10">
-              <div className="flex items-center bg-gray-100 rounded-2xl p-1">
-                <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-xl">-</button>
-                <span className="w-12 text-center font-black text-gray-900 text-lg">{quantity}</span>
-                <button onClick={() => setQuantity(q => q + 1)} className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-xl">+</button>
+            <div className="space-y-4 mb-10">
+              <div className="flex gap-4">
+                <div className="flex items-center bg-gray-100 rounded-2xl p-1 shrink-0">
+                  <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-xl">-</button>
+                  <span className="w-10 text-center font-black text-gray-900 text-lg">{quantity}</span>
+                  <button onClick={() => setQuantity(q => q + 1)} className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-xl">+</button>
+                </div>
+                
+                <button 
+                  onClick={onDirectBuy}
+                  className="shine-effect flex-1 bg-secondary text-white font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-2 hover:bg-secondary-hover hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  <Zap className="w-6 h-6 fill-current" /> Buy Now
+                </button>
               </div>
+
               <button 
                 onClick={handleAddToCart} 
-                className="flex-1 bg-indigo-600 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="w-full bg-primary text-white font-black text-lg rounded-2xl shadow-xl shadow-primary/10 py-4 flex items-center justify-center gap-2 hover:bg-primary-hover transition-all"
               >
                 <ShoppingCart className="w-6 h-6" /> Add to Cart
               </button>
@@ -150,7 +164,7 @@ export default function ProductDetail() {
           <div className="flex justify-between items-center mb-10">
             <h2 className="text-3xl font-black text-gray-900">Customer Reviews</h2>
             <Link 
-              to={`/product/${slug}/${id}/write-review`} // Updated for slug-based structure
+              to={`/product/${slug}/${id}/write-review`} 
               className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-bold hover:bg-indigo-100 transition-colors"
             >
               Write a Review

@@ -9,7 +9,7 @@ import { getFunctions } from "firebase/functions";
 // Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyC_HewhclbM8_dbSgt_1wfVIWvE7HyVM9Y",
-  authDomain: "artemon-joy.firebaseapp.com",
+  authDomain: "auth.artemonjoy.com",
   projectId: "artemon-joy",
   storageBucket: "artemon-joy.firebasestorage.app",
   messagingSenderId: "825613172914",

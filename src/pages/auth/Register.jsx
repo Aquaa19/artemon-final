@@ -3,18 +3,21 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  User, Mail, Lock, ShieldCheck, 
+  User, Mail, Lock, ShieldCheck, CheckCircle2,
   ArrowRight, ArrowLeft, Loader2, Sparkles 
 } from 'lucide-react';
 
 export default function Register() {
-  const { requestOTP, verifyAndRegister, loginWithGoogle } = useAuth(); // Added loginWithGoogle
+  const { requestOTP, verifyAndRegister, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false); // New loader for Google
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // NEW: User Agreement State
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -30,6 +33,11 @@ export default function Register() {
 
   const handleRequestOTP = async (e) => {
     e.preventDefault();
+    if (!agreedToTerms) {
+      setError('Please agree to the Terms and Conditions to proceed.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -65,8 +73,12 @@ export default function Register() {
     }
   };
 
-  // --- NEW: Google Registration Handler ---
   const handleGoogleRegister = async () => {
+    if (!agreedToTerms) {
+      setError('Please agree to the Terms and Conditions to proceed.');
+      return;
+    }
+
     setGoogleLoading(true);
     setError('');
     try {
@@ -131,8 +143,40 @@ export default function Register() {
                   </div>
                 </div>
 
-                <button disabled={loading || googleLoading} type="submit"
-                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
+                {/* NEW: Agreement Checkbox */}
+                <div className="flex items-start gap-3 px-1 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setAgreedToTerms(!agreedToTerms)}
+                    className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-lg border-2 transition-all flex items-center justify-center ${
+                      agreedToTerms 
+                        ? 'bg-indigo-600 border-indigo-600 text-white' 
+                        : 'bg-white border-gray-200'
+                    }`}
+                  >
+                    {agreedToTerms && <CheckCircle2 className="w-4 h-4" />}
+                  </button>
+                  <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                    By joining, I agree to the Artemon Joy{' '}
+                    <Link to="/privacy" target="_blank" className="text-indigo-600 font-bold hover:underline">
+                      Privacy Policy
+                    </Link>{' '}
+                    and{' '}
+                    <Link to="/terms" target="_blank" className="text-indigo-600 font-bold hover:underline">
+                      Terms of Service
+                    </Link>.
+                  </p>
+                </div>
+
+                <button 
+                  disabled={loading || googleLoading || !agreedToTerms} 
+                  type="submit"
+                  className={`w-full py-4 font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.98] ${
+                    agreedToTerms 
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100' 
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
+                  }`}
+                >
                   {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Send Verification Code <ArrowRight className="w-5 h-5" /></>}
                 </button>
               </form>
@@ -150,15 +194,23 @@ export default function Register() {
               {/* Google Button */}
               <button
                 type="button"
-                disabled={loading || googleLoading}
+                disabled={loading || googleLoading || !agreedToTerms}
                 onClick={handleGoogleRegister}
-                className="w-full py-4 bg-white border-2 border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/30 text-gray-700 font-bold rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                className={`w-full py-4 border-2 rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] ${
+                  agreedToTerms
+                    ? 'bg-white border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/30 text-gray-700'
+                    : 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
               >
                 {googleLoading ? (
                   <Loader2 className="animate-spin w-5 h-5" />
                 ) : (
                   <>
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+                    <img 
+                      src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                      className={`w-5 h-5 ${!agreedToTerms && 'grayscale opacity-50'}`} 
+                      alt="Google" 
+                    />
                     Sign up with Google
                   </>
                 )}

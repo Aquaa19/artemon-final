@@ -42,7 +42,6 @@ export default function Home() {
         
         const trendingList = trendingData || [];
         setAllTrending(trendingList);
-        // We render all trending items + the "View More" card in the track
         setDisplayTrending([...trendingList, { id: 'view-more-card', type: 'view-more' }]);
         setNewArrivals((arrivalsData || []).slice(0, 4));
       } catch (error) {
@@ -56,7 +55,6 @@ export default function Home() {
 
   const nextSlide = () => {
     setCurrentIndex((prev) => {
-      // If we are at the end of the track, loop back to the start
       const isAtEnd = prev + itemsPerPage >= displayTrending.length;
       return isAtEnd ? 0 : prev + 1;
     });
@@ -64,7 +62,6 @@ export default function Home() {
 
   const prevSlide = () => {
     setCurrentIndex((prev) => {
-      // If we are at the start, loop to the end
       const isAtStart = prev === 0;
       return isAtStart ? displayTrending.length - itemsPerPage : prev - 1;
     });
@@ -84,7 +81,6 @@ export default function Home() {
     action();
   };
 
-  // Touch handlers for mobile swiping
   const onTouchStart = (e) => { 
     setTouchEnd(null); 
     setTouchStart(e.targetTouches[0].clientX); 
@@ -139,8 +135,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Optimized Trending Section with Swipe Animation */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+      {/* Optimized Trending Section - ADDED TOUR TARGET CLASS */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 tour-target-trending">
         <div 
           className="bg-secondary rounded-[3rem] p-8 lg:p-16 relative overflow-hidden shadow-2xl"
           onMouseEnter={() => setIsPaused(true)} 
@@ -163,7 +159,6 @@ export default function Home() {
                 {[1,2,3,4].map(i => <div key={i} className="h-96 bg-white/20 animate-pulse rounded-3xl"></div>)}
               </div>
             ) : (
-              /* The Slider Container */
               <div className="relative overflow-hidden">
                 <div 
                   className="flex transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] touch-pan-y" 

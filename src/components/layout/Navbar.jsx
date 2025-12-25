@@ -114,7 +114,7 @@ export default function Navbar() {
                   {item.label}
                   <span
                     className={`absolute -bottom-1 left-0 h-0.5 bg-secondary transition-all duration-300 ${
-                      isActive ? 'w-full' : 'w-0 group-hover:w-full'
+                      isActive ? 'w-0' : 'w-0 group-hover:w-full'
                     }`}
                   ></span>
                 </Link>
@@ -127,9 +127,10 @@ export default function Navbar() {
               isSearchPage ? 'invisible' : ''
             }`}
           >
+            {/* ADDED TOUR TARGET CLASS */}
             <div
               onClick={() => navigate('/search')}
-              className={`relative rounded-full transition-all border cursor-text group ${searchBg}`}
+              className={`relative rounded-full transition-all border cursor-text group tour-target-search ${searchBg}`}
             >
               <div
                 className={`w-full pl-4 pr-10 py-1.5 rounded-full text-sm select-none ${
@@ -153,9 +154,10 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3 shrink-0">
+            {/* ADDED TOUR TARGET CLASS */}
             <Link
               to="/favorites"
-              className={`p-2 rounded-full transition-all relative group ${iconColor} hover:bg-black/5`}
+              className={`p-2 rounded-full transition-all relative group tour-target-favorites ${iconColor} hover:bg-black/5`}
             >
               <Heart className="h-5 w-5" />
               {wishlist.length > 0 && (
@@ -165,7 +167,6 @@ export default function Navbar() {
               )}
             </Link>
 
-            {/* MAGNETIC CART ICON WITH RE-FIXED POP ANIMATION */}
             <Link
               to="/cart"
               id="cart-icon" 
@@ -236,7 +237,6 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Actions */}
           <div className="md:hidden flex items-center gap-3">
             {!isSearchPage && (
               <Link to="/search" className={`p-1 rounded-full ${iconColor}`}>

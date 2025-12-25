@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, LogIn, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function Login() {
-  const { login, loginWithGoogle } = useAuth(); // Added loginWithGoogle
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -14,7 +14,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false); // New loader for Google
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -39,7 +39,6 @@ export default function Login() {
     }
   };
 
-  // --- NEW: Google Login Handler ---
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     setError('');
@@ -149,7 +148,13 @@ export default function Login() {
           </button>
         </div>
 
-        <p className="text-center mt-8 text-gray-500 font-medium">
+        {/* Informative Footer Links (Non-blocking) */}
+        <p className="text-center mt-8 text-xs text-gray-500 font-medium px-4 leading-relaxed">
+          By signing in, you agree to Artemon Joy's <br />
+          <Link to="/privacy" className="text-indigo-600 hover:underline">Privacy Policy</Link> and <Link to="/terms" className="text-indigo-600 hover:underline">Terms of Service</Link>.
+        </p>
+
+        <p className="text-center mt-4 text-gray-500 font-medium">
           Don't have an account? <Link to="/register" className="text-indigo-600 font-bold hover:underline">Join the Joy</Link>
         </p>
       </div>

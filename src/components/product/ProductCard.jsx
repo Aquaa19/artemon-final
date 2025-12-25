@@ -1,20 +1,17 @@
 // Filename: src/components/product/ProductCard.jsx
-import { Link } from 'react-router-dom';
-import { ShoppingCart, Heart, Star, Eye } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingCart, Heart, Star, Eye, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
 import { useProductModal } from '../../context/ProductModalContext';
 import { flyToCart } from '../../utils/animations';
 
 export default function ProductCard({ product }) {
-  const { addToCart, toggleWishlist, isInWishlist } = useCart();
+  const { addToCart, toggleWishlist, isInWishlist, handleBuyNow } = useCart();
   const { openModal } = useProductModal();
+  const navigate = useNavigate();
   const isFavorite = isInWishlist(product.id);
 
-  /**
-   * Helper to create a URL-friendly slug from the product name
-   * Example: "Brown Teddy Bear" -> "brown-teddy-bear"
-   */
   const createSlug = (name) => {
     if (!name) return 'product';
     return name
@@ -32,11 +29,17 @@ export default function ProductCard({ product }) {
 
   const handleAddToCart = (e) => {
     e.preventDefault();
+    // Using currentTarget ensures we find the card container correctly
     flyToCart(e); 
     addToCart(product);
   };
 
-  // Descriptive URL structure: /product/slug-name/id
+  const onDirectBuy = (e) => {
+    e.preventDefault();
+    handleBuyNow(product, 1);
+    navigate('/checkout');
+  };
+
   const productPath = `/product/${createSlug(product.name)}/${product.id}`;
 
   return (
@@ -46,25 +49,16 @@ export default function ProductCard({ product }) {
       animate={{ opacity: 1, y: 0 }}
       className="group relative bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-gray-100 flex flex-col h-full"
     >
-      
-      {/* Product Image Container */}
       <div className="relative aspect-square bg-white overflow-hidden p-4">
         <Link to={productPath} className="block w-full h-full">
           <motion.img 
             layoutId={`product-image-${product.id}`}
             src={product.image || "https://placehold.co/400x400?text=No+Image"} 
             alt={product.name}
-            loading="lazy"
-            decoding="async"
             className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
-            onError={(e) => { 
-              e.target.onerror = null; 
-              e.target.src = "https://images.unsplash.com/photo-1558877385-81a1c7e67d72?auto=format&fit=crop&q=80&w=400"; 
-            }}
           />
         </Link>
         
-        {/* Badges */}
         <div className="absolute top-4 left-4 flex flex-col gap-2">
            {product.isTrending && (
              <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-sm animate-pulse uppercase tracking-wider">
@@ -73,7 +67,6 @@ export default function ProductCard({ product }) {
            )}
         </div>
 
-        {/* Action Buttons Overlay */}
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           <button 
             onClick={(e) => {
@@ -98,7 +91,6 @@ export default function ProductCard({ product }) {
         </div>
       </div>
 
-      {/* Product Info Area */}
       <div className="p-5 flex flex-col flex-grow bg-white">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded-lg">
@@ -120,18 +112,30 @@ export default function ProductCard({ product }) {
           {product.description || "A wonderful toy designed to spark joy and imagination."}
         </p>
 
-        <div className="pt-4 flex items-center justify-between mt-auto">
-          <span className="text-2xl font-black text-gray-900">
-            ₹{product.price?.toLocaleString()}
-          </span>
-          
-          <motion.button 
-            whileTap={{ scale: 0.95 }}
-            onClick={handleAddToCart}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl font-black text-sm transition-all shadow-lg shadow-indigo-100"
-          >
-            <ShoppingCart className="w-4 h-4" /> Add
-          </motion.button>
+        <div className="pt-4 space-y-3 mt-auto">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-2xl font-black text-gray-900">
+              ₹{product.price?.toLocaleString()}
+            </span>
+          </div>
+
+          <div className="flex gap-2">
+            <motion.button 
+              whileTap={{ scale: 0.98 }}
+              onClick={onDirectBuy}
+              className="shine-effect flex-1 flex items-center justify-center gap-2 bg-secondary hover:bg-secondary-hover text-white py-3 rounded-2xl font-black text-sm transition-all shadow-lg"
+            >
+              <Zap className="w-4 h-4 fill-current" /> Buy Now
+            </motion.button>
+
+            <motion.button 
+              whileTap={{ scale: 0.98 }}
+              onClick={handleAddToCart}
+              className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white py-3 rounded-2xl font-black text-sm transition-all shadow-lg"
+            >
+              <ShoppingCart className="w-4 h-4" /> Add
+            </motion.button>
+          </div>
         </div>
       </div>
     </motion.div>

@@ -1,19 +1,26 @@
 // Filename: src/pages/auth/Profile.jsx
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Package, Clock, LogOut, Edit2, MapPin, Phone, X, AlertCircle } from 'lucide-react';
+import { User, Package, Clock, LogOut, Edit2, MapPin, X, Loader2, Save, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-// FIXED: Corrected the path from '../../firebase/config' to '../../services/firebase'
 import { db } from '../../services/firebase'; 
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserAddress } = useAuth(); 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ displayName: '', phone: '', address: '' });
+  const [updateLoading, setUpdateLoading] = useState(false);
+  
+  const [formData, setFormData] = useState({ 
+    displayName: '', 
+    address: '',
+    city: '',
+    zip: '',
+    country: 'India'
+  });
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,8 +28,10 @@ export default function Profile() {
       fetchOrders();
       setFormData({
         displayName: user.displayName || '',
-        phone: user.phone || '',
-        address: user.address || ''
+        address: user.address || '',
+        city: user.city || '',
+        zip: user.zip || '',
+        country: user.country || 'India'
       });
     }
   }, [user]);
@@ -36,18 +45,30 @@ export default function Profile() {
         where("user_id", "==", user.uid),
         orderBy("createdAt", "desc")
       );
-      
       const querySnapshot = await getDocs(q);
-      const ordersData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      setOrders(ordersData);
+      setOrders(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (err) {
       console.error("Error fetching orders:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setUpdateLoading(true);
+    try {
+      await updateUserAddress({
+        address: formData.address,
+        city: formData.city,
+        zip: formData.zip,
+        country: formData.country
+      });
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Profile update failed:", err);
+    } finally {
+      setUpdateLoading(false);
     }
   };
 
@@ -77,11 +98,17 @@ export default function Profile() {
                      </span>
                  </div>
                  <p className="text-gray-500 font-medium">{user.email}</p>
+                 {/* Render City and Zip in Profile header */}
+                 {user.address && (
+                   <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold pt-1">
+                     <MapPin className="w-3.5 h-3.5" /> {user.city}, {user.zip}
+                   </div>
+                 )}
                </div>
 
                <div className="flex flex-col gap-2 min-w-[140px]">
                    <button onClick={() => setIsEditing(true)} className="flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-lg shadow-gray-200">
-                     <Edit2 className="w-4 h-4" /> Edit Profile
+                     <Edit2 className="w-4 h-4" /> Manage Address
                    </button>
                    <button onClick={handleLogout} className="flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 px-4 py-2.5 rounded-xl font-bold text-sm transition border border-transparent hover:border-red-100">
                      <LogOut className="w-4 h-4" /> Sign Out
@@ -89,6 +116,57 @@ export default function Profile() {
                </div>
             </div>
         </div>
+
+        {/* Address Edit Modal */}
+        {isEditing && (
+          <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl scale-100 animate-pop-in">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-gray-900">Edit Address</h2>
+                <button onClick={() => setIsEditing(false)} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-100 text-gray-400">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Street Address</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input required className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-indigo-600 font-bold"
+                      value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">City</label>
+                    <input required className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-indigo-600 font-bold"
+                      value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Zip Code</label>
+                    <input required className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-indigo-600 font-bold"
+                      value={formData.zip} onChange={e => setFormData({...formData, zip: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Country</label>
+                  <div className="relative">
+                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input required className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-indigo-600 font-bold"
+                      value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})} />
+                  </div>
+                </div>
+
+                <button disabled={updateLoading} type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 mt-4">
+                  {updateLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <><Save className="w-5 h-5" /> Save Address</>}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Order History */}
         <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -99,7 +177,7 @@ export default function Profile() {
           <div className="text-center py-10 font-bold text-gray-400">Loading your orders...</div>
         ) : orders.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center shadow-sm border border-gray-100 text-gray-500 font-bold">
-             You haven't placed any orders yet.
+              You haven't placed any orders yet.
           </div>
         ) : (
           <div className="space-y-4">

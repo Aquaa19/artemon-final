@@ -1,14 +1,16 @@
 // Filename: src/components/product/ProductQuickViewModal.jsx
-import { X, ShoppingCart, Heart, ShieldCheck, Truck, RotateCcw, Star, MessageSquare, ThumbsUp } from 'lucide-react';
+import { X, ShoppingCart, Heart, ShieldCheck, Truck, RotateCcw, Star, MessageSquare, ThumbsUp, Zap } from 'lucide-react';
 import { useProductModal } from '../../context/ProductModalContext';
 import { useCart } from '../../context/CartContext';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { flyToCart } from '../../utils/animations';
 
 export default function ProductQuickViewModal() {
   const { modalProduct, closeModal } = useProductModal();
-  const { addToCart, toggleWishlist, isInWishlist } = useCart();
+  const { addToCart, toggleWishlist, isInWishlist, handleBuyNow } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const navigate = useNavigate();
   
   useEffect(() => {
     setQuantity(1);
@@ -19,9 +21,24 @@ export default function ProductQuickViewModal() {
   const product = modalProduct;
   const isFavorite = isInWishlist(product.id);
 
-  const handleAddToCart = () => {
+  // Helper to create slug for the "Read Full Details" link
+  const createSlug = (name) => {
+    if (!name) return 'product';
+    return name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+  };
+
+  const handleAddToCart = (e) => {
+    // Trigger physics-based fly animation
+    flyToCart(e);
     addToCart(product, quantity);
+    // Brief delay before closing to let user see the animation start
+    setTimeout(closeModal, 600);
+  };
+
+  const onDirectBuy = () => {
+    handleBuyNow(product, quantity);
     closeModal();
+    navigate('/checkout');
   };
 
   const handleToggleWishlist = (e) => {
@@ -51,8 +68,8 @@ export default function ProductQuickViewModal() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 lg:p-10">
           
           <div className="flex flex-col gap-6">
-            {/* Changed bg-gray-50 to bg-white for blending */}
-            <div className="relative aspect-square bg-white rounded-[2rem] overflow-hidden border border-gray-100 flex items-center justify-center p-8">
+            {/* Added 'group' class so flyToCart can find the img */}
+            <div className="group relative aspect-square bg-white rounded-[2rem] overflow-hidden border border-gray-100 flex items-center justify-center p-8">
                 <img 
                     src={product.image || "https://placehold.co/800x800?text=No+Image"} 
                     alt={product.name}
@@ -60,7 +77,6 @@ export default function ProductQuickViewModal() {
                 />
             </div>
 
-            {/* Changed bg-gray-50 to bg-white for a cleaner look */}
             <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm">
                 <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Cloud Data Stats</h3>
                 <div className="flex justify-between items-center px-2">
@@ -81,7 +97,7 @@ export default function ProductQuickViewModal() {
                 </div>
                 
                 <Link 
-                  to={`/product/${product.id}`} 
+                  to={`/product/${createSlug(product.name)}/${product.id}`} 
                   onClick={closeModal}
                   className="mt-5 text-indigo-600 text-sm font-black hover:underline block text-right"
                 >
@@ -125,29 +141,39 @@ export default function ProductQuickViewModal() {
                 </div>
             </div>
 
-            <div className="flex gap-4 items-center pt-6 border-t border-gray-100">
-                <div className="flex items-center bg-gray-100 rounded-2xl p-1 shrink-0">
-                    <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-lg">-</button>
-                    <span className="w-10 text-center font-black text-gray-900">{quantity}</span>
-                    <button onClick={() => setQuantity(q => q + 1)} className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-lg">+</button>
+            {/* UPDATED: Dual-Action Buttons */}
+            <div className="space-y-4 pt-6 border-t border-gray-100">
+                <div className="flex gap-4 items-center">
+                    <div className="flex items-center bg-gray-100 rounded-2xl p-1 shrink-0">
+                        <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-lg">-</button>
+                        <span className="w-10 text-center font-black text-gray-900">{quantity}</span>
+                        <button onClick={() => setQuantity(q => q + 1)} className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-white rounded-xl transition font-bold text-lg">+</button>
+                    </div>
+                    
+                    <button 
+                        onClick={onDirectBuy}
+                        className="shine-effect flex-1 bg-secondary hover:bg-secondary-hover text-white font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-2 py-4 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        <Zap className="w-5 h-5 fill-current" /> Buy Now
+                    </button>
+                    
+                    <button 
+                        onClick={handleToggleWishlist}
+                        className={`p-4 rounded-2xl transition-all shadow-md shrink-0
+                            ${isFavorite 
+                            ? 'bg-red-500 text-white hover:bg-red-600' 
+                            : 'bg-white border-2 border-gray-100 hover:border-red-200 hover:bg-red-50 hover:text-red-500'
+                            }`}
+                    >
+                        <Heart className={`w-6 h-6 ${isFavorite ? 'fill-current' : ''}`} />
+                    </button>
                 </div>
-                
+
                 <button 
                     onClick={handleAddToCart}
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-100 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 py-4"
+                    className="w-full bg-primary hover:bg-primary-hover text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-100 transition-all py-4 flex items-center justify-center gap-2"
                 >
                     <ShoppingCart className="w-5 h-5" /> Add to Cart
-                </button>
-                
-                <button 
-                    onClick={handleToggleWishlist}
-                    className={`p-4 rounded-2xl transition-all shadow-md shrink-0
-                        ${isFavorite 
-                        ? 'bg-red-500 text-white hover:bg-red-600' 
-                        : 'bg-white border-2 border-gray-100 hover:border-red-200 hover:bg-red-50 hover:text-red-500'
-                        }`}
-                >
-                    <Heart className={`w-6 h-6 ${isFavorite ? 'fill-current' : ''}`} />
                 </button>
             </div>
           </div>

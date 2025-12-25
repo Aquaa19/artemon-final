@@ -11,7 +11,7 @@
   --color-secondary-hover: #d97706; 
   --color-secondary-light: #fffbeb; 
   
-  --color-accent: #ec4899;        
+  --color-accent: #ec4899;         
   --color-accent-hover: #db2777;  
   --color-accent-light: #fdf2f8;  
   
@@ -101,24 +101,54 @@
   .animate-loading-bar {
     animation: loading-bar 1.5s ease-in-out infinite;
   }
+
+  /* =========================================
+     WELCOME TOUR SYSTEM (NEW)
+     ========================================= */
+
+  /* The Dimming Layer with a Spotlight Hole */
+  .tour-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9990;
+    background-color: rgba(0, 0, 0, 0.75);
+    /* This creates the 'punch-hole' effect */
+    mask-image: radial-gradient(
+      circle var(--tour-hole-size, 0px) at var(--tour-hole-x, 0px) var(--tour-hole-y, 0px),
+      transparent 99%,
+      black 100%
+    );
+    -webkit-mask-image: radial-gradient(
+      circle var(--tour-hole-size, 0px) at var(--tour-hole-x, 0px) var(--tour-hole-y, 0px),
+      transparent 99%,
+      black 100%
+    );
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+
+  /* Glass Tooltip for the Tour Steps */
+  .tour-tooltip {
+    @apply fixed z-[9995] bg-white rounded-[2rem] p-6 shadow-2xl border border-white/20;
+    backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(255, 255, 255, 0.95);
+    max-width: 320px;
+  }
+
+  .tour-dot {
+    @apply h-2 w-2 rounded-full transition-all duration-300;
+  }
 }
 
 /* ================================
-   FORTIFIED GLASS PRISM (FINAL)
+    FORTIFIED GLASS PRISM
    ================================ */
 
 .glass-prism {
-  /* 1. Reset inherited backgrounds */
   background: none !important;
-
-  /* 2. Transparent tint */
   background-color: rgba(255, 255, 255, 0.3) !important;
-
-  /* 3. Blur (ordering matters) */
   -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
-
-  /* 4. Structural rules */
   border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
   isolation: isolate !important;
   z-index: 50 !important;
@@ -126,7 +156,6 @@
   width: 100% !important;
 }
 
-/* Force content visibility behind nav */
 @supports (backdrop-filter: blur(1px)) {
   .glass-prism {
     background-color: rgba(255, 255, 255, 0.25) !important;
