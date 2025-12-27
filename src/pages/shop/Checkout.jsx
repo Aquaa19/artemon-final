@@ -5,6 +5,8 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { ShieldCheck, Truck, CreditCard, Loader2, LocateFixed, Edit3, Lock } from 'lucide-react';
 import { firestoreService } from '../../services/db';
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function Checkout() {
   const { cartItems, getCartTotal, clearCart, buyNowItem, clearBuyNow } = useCart();
@@ -14,7 +16,6 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
-  // Track if order was successful to prevent the useEffect guard from firing
   const [isOrderComplete, setIsOrderComplete] = useState(false);
 
   const isDirectBuy = !!buyNowItem;
@@ -32,11 +33,11 @@ export default function Checkout() {
   });
 
   useEffect(() => {
-    // If we just finished an order or are currently processing, don't redirect
     if (isOrderComplete || loading) return;
 
     if (!isDirectBuy && cartItems.length === 0) {
-      navigate('/shop', { replace: true });
+      // Updated navigate to use obfuscated SHOP route
+      navigate(ROUTE_MAP.SHOP, { replace: true });
     }
     
     if (user?.address) {
@@ -117,8 +118,6 @@ export default function Checkout() {
 
     try {
       await firestoreService.createOrder(orderData);
-      
-      // Lock the redirect guard before clearing data
       setIsOrderComplete(true);
 
       if (isDirectBuy) {
@@ -127,8 +126,8 @@ export default function Checkout() {
         await clearCart();
       }
       
-      // Small delay ensures state updates don't clash with navigation
-      navigate('/order-success');
+      // Updated navigate to use obfuscated SUCCESS route
+      navigate(ROUTE_MAP.SUCCESS);
     } catch (err) {
       console.error("Order processing failed:", err);
       alert('We could not process your order. Please try again.');

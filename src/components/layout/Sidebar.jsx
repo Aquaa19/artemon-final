@@ -8,8 +8,10 @@ import {
   Users, 
   LogOut, 
   MessageSquare,
-  Mail // Added for Subscribers
+  Mail,
+  ShieldCheck // Added for moderation settings
 } from 'lucide-react';
+import { ROUTE_MAP } from '../../App';
 
 export default function Sidebar() {
   const { logout } = useAuth();
@@ -18,17 +20,18 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate(ROUTE_MAP.LOGIN);
   };
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Overview', path: '/admin' },
-    { icon: Package, label: 'Inventory', path: '/admin/inventory' },
-    { icon: ShoppingBag, label: 'Orders', path: '/admin/orders' },
-    { icon: MessageSquare, label: 'Reviews', path: '/admin/reviews' },
-    { icon: Users, label: 'Customers', path: '/admin/users' },
-    // NEW: Newsletter Subscriber Link
-    { icon: Mail, label: 'Subscribers', path: '/admin/subscribers' },
+    { icon: LayoutDashboard, label: 'Overview', path: ROUTE_MAP.ADMIN },
+    { icon: Package, label: 'Inventory', path: `${ROUTE_MAP.ADMIN}/inventory` },
+    { icon: ShoppingBag, label: 'Orders', path: `${ROUTE_MAP.ADMIN}/orders` },
+    { icon: MessageSquare, label: 'Reviews', path: `${ROUTE_MAP.ADMIN}/reviews` },
+    // NEW: Moderation Settings Tab
+    { icon: ShieldCheck, label: 'Moderation AI', path: `${ROUTE_MAP.ADMIN}/moderation-settings` },
+    { icon: Users, label: 'Customers', path: `${ROUTE_MAP.ADMIN}/users` },
+    { icon: Mail, label: 'Subscribers', path: `${ROUTE_MAP.ADMIN}/subscribers` },
   ];
 
   return (

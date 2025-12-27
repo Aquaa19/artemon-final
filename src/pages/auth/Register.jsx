@@ -4,8 +4,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   User, Mail, Lock, ShieldCheck, CheckCircle2,
-  ArrowRight, ArrowLeft, Loader2, Sparkles 
+  ArrowRight, ArrowLeft, Loader2, Sparkles, Eye, EyeOff 
 } from 'lucide-react';
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function Register() {
   const { requestOTP, verifyAndRegister, loginWithGoogle } = useAuth();
@@ -16,8 +18,9 @@ export default function Register() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // NEW: User Agreement State
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  // NEW: State for password visibility
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -64,7 +67,8 @@ export default function Register() {
         formData.otp, 
         formData.name
       );
-      navigate('/shop');
+      // Redirect using obfuscated Shop route
+      navigate(ROUTE_MAP.SHOP);
     } catch (err) {
       console.error(err);
       setError('Invalid or expired verification code.');
@@ -83,7 +87,8 @@ export default function Register() {
     setError('');
     try {
       await loginWithGoogle();
-      navigate('/shop');
+      // Redirect using obfuscated Shop route
+      navigate(ROUTE_MAP.SHOP);
     } catch (err) {
       console.error("Google registration error:", err);
       setError('Could not connect to Google. Please try again.');
@@ -137,13 +142,28 @@ export default function Register() {
                   <label className="text-sm font-bold text-gray-700 ml-1">Set Password</label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input required name="password" type="password" placeholder="••••••••" 
-                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50"
-                      value={formData.password} onChange={handleChange} />
+                    <input 
+                      required 
+                      name="password" 
+                      // NEW: Toggle type based on showPassword
+                      type={showPassword ? "text" : "password"} 
+                      placeholder="••••••••" 
+                      className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50"
+                      value={formData.password} 
+                      onChange={handleChange} 
+                    />
+                    {/* NEW: Visibility Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
                   </div>
                 </div>
 
-                {/* NEW: Agreement Checkbox */}
+                {/* Agreement Checkbox */}
                 <div className="flex items-start gap-3 px-1 py-2">
                   <button
                     type="button"
@@ -245,7 +265,7 @@ export default function Register() {
         </div>
 
         <p className="text-center mt-8 text-gray-500 font-medium">
-          Already have an account? <Link to="/login" className="text-indigo-600 font-bold hover:underline">Log In</Link>
+          Already have an account? <Link to={ROUTE_MAP.LOGIN} className="text-indigo-600 font-bold hover:underline">Log In</Link>
         </p>
       </div>
     </div>

@@ -1,10 +1,11 @@
-// Filename: src/components/layout/Navbar.jsx
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ShoppingCart, LogOut, Heart, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,8 +17,8 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isHome = location.pathname === '/';
-  const isSearchPage = location.pathname === '/search';
+  const isHome = location.pathname === ROUTE_MAP.HOME;
+  const isSearchPage = location.pathname === ROUTE_MAP.SEARCH;
   const showWhiteNav = scrolled;
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/login');
+      navigate(ROUTE_MAP.LOGIN);
     } catch (error) {
       console.error('Failed to logout', error);
     }
@@ -77,7 +78,7 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-14">
-          <Link to="/" className="flex items-center gap-2 group shrink-0">
+          <Link to={ROUTE_MAP.HOME} className="flex items-center gap-2 group shrink-0">
             <div className="relative">
               <div className="absolute inset-0 bg-primary rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity"></div>
               <img
@@ -95,10 +96,10 @@ export default function Navbar() {
 
           <div className="hidden lg:flex space-x-6 lg:space-x-8 items-center">
             {[
-              { label: 'Home', path: '/' },
-              { label: 'Shop', path: '/shop' },
-              { label: 'Trending', path: '/trending' },
-              { label: 'New Arrivals', path: '/new-arrivals' }
+              { label: 'Home', path: ROUTE_MAP.HOME },
+              { label: 'Shop', path: ROUTE_MAP.SHOP },
+              { label: 'Trending', path: ROUTE_MAP.TRENDING },
+              { label: 'New Arrivals', path: ROUTE_MAP.NEW_ARRIVALS }
             ].map((item) => {
               const isActive = location.pathname === item.path;
               return (
@@ -127,9 +128,8 @@ export default function Navbar() {
               isSearchPage ? 'invisible' : ''
             }`}
           >
-            {/* DESKTOP SEARCH TARGET */}
             <div
-              onClick={() => navigate('/search')}
+              onClick={() => navigate(ROUTE_MAP.SEARCH)}
               className={`relative rounded-full transition-all border cursor-text group tour-target-search ${searchBg}`}
             >
               <div
@@ -154,9 +154,8 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3 shrink-0">
-            {/* DESKTOP FAVORITES TARGET */}
             <Link
-              to="/favorites"
+              to={ROUTE_MAP.FAVORITES}
               className={`p-2 rounded-full transition-all relative group tour-target-favorites ${iconColor} hover:bg-black/5`}
             >
               <Heart className="h-5 w-5" />
@@ -168,7 +167,7 @@ export default function Navbar() {
             </Link>
 
             <Link
-              to="/cart"
+              to={ROUTE_MAP.CART}
               id="cart-icon" 
               className={`p-2 rounded-full transition-all relative group ${iconColor} hover:bg-black/5`}
             >
@@ -204,14 +203,14 @@ export default function Navbar() {
               >
                 {user.role === 'admin' && (
                   <Link
-                    to="/admin"
+                    to={ROUTE_MAP.ADMIN}
                     className={`text-sm font-bold hover:underline mr-2 ${textColor}`}
                   >
                     Admin
                   </Link>
                 )}
                 <Link
-                  to="/profile"
+                  to={ROUTE_MAP.PROFILE}
                   className={`text-sm font-medium hover:underline ${textColor}`}
                 >
                   {user.displayName?.split(' ')[0] || 'Account'}
@@ -225,7 +224,7 @@ export default function Navbar() {
               </div>
             ) : (
               <Link
-                to="/login"
+                to={ROUTE_MAP.LOGIN}
                 className={`ml-2 font-semibold px-5 py-2 rounded-full text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all active:scale-95 ${
                   showWhiteNav && !isFooterOverlap
                     ? 'bg-primary text-white'
@@ -239,14 +238,12 @@ export default function Navbar() {
 
           <div className="md:hidden flex items-center gap-3">
             {!isSearchPage && (
-              /* MOBILE SEARCH TARGET */
-              <Link to="/search" className={`p-1 rounded-full tour-target-search ${iconColor}`}>
+              <Link to={ROUTE_MAP.SEARCH} className={`p-1 rounded-full tour-target-search ${iconColor}`}>
                 <Search className="h-6 w-6" />
               </Link>
             )}
 
-            {/* MOBILE FAVORITES TARGET */}
-            <Link to="/favorites" className={`relative tour-target-favorites ${iconColor}`}>
+            <Link to={ROUTE_MAP.FAVORITES} className={`relative tour-target-favorites ${iconColor}`}>
               <Heart className="h-6 w-6" />
               {wishlist.length > 0 && (
                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-[10px] font-bold text-white flex items-center justify-center rounded-full shadow-sm">
@@ -255,7 +252,7 @@ export default function Navbar() {
               )}
             </Link>
 
-            <Link to="/cart" id="cart-icon-mobile" className={`relative ${iconColor}`}>
+            <Link to={ROUTE_MAP.CART} id="cart-icon-mobile" className={`relative ${iconColor}`}>
               <ShoppingCart className="h-6 w-6" />
               <AnimatePresence mode="popLayout">
                 {getCartCount() > 0 && (
@@ -294,27 +291,27 @@ export default function Navbar() {
         }`}
       >
         <div className="px-4 py-4 space-y-2">
-          <Link className="block px-3 py-2 rounded-lg text-gray-900" to="/">
+          <Link className="block px-3 py-2 rounded-lg text-gray-900" to={ROUTE_MAP.HOME}>
             Home
           </Link>
-          <Link className="block px-3 py-2 rounded-lg text-gray-900" to="/shop">
+          <Link className="block px-3 py-2 rounded-lg text-gray-900" to={ROUTE_MAP.SHOP}>
             Shop
           </Link>
           <Link
             className="block px-3 py-2 rounded-lg text-gray-900"
-            to="/trending"
+            to={ROUTE_MAP.TRENDING}
           >
             Trending
           </Link>
           <Link
             className="block px-3 py-2 rounded-lg text-gray-900"
-            to="/new-arrivals"
+            to={ROUTE_MAP.NEW_ARRIVALS}
           >
             New Arrivals
           </Link>
           <Link
             className="block px-3 py-2 rounded-lg text-gray-900"
-            to="/favorites"
+            to={ROUTE_MAP.FAVORITES}
           >
             Favorites ({wishlist.length})
           </Link>
@@ -324,14 +321,14 @@ export default function Navbar() {
               <>
                 {user.role === 'admin' && (
                   <Link
-                    to="/admin"
+                    to={ROUTE_MAP.ADMIN}
                     className="block px-3 py-2 font-bold text-primary"
                   >
                     Admin Dashboard
                   </Link>
                 )}
                 <Link
-                  to="/profile"
+                  to={ROUTE_MAP.PROFILE}
                   className="block px-3 py-2 text-gray-600"
                 >
                   My Profile
@@ -345,7 +342,7 @@ export default function Navbar() {
               </>
             ) : (
               <Link
-                to="/login"
+                to={ROUTE_MAP.LOGIN}
                 className="block text-center px-3 py-3 rounded-lg font-bold bg-primary text-white"
               >
                 Sign In

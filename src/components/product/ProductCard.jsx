@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
 import { useProductModal } from '../../context/ProductModalContext';
 import { flyToCart } from '../../utils/animations';
+// IMPORT the route map to use obfuscated paths
+import { ROUTE_MAP } from '../../App';
 
 export default function ProductCard({ product }) {
   const { addToCart, toggleWishlist, isInWishlist, handleBuyNow } = useCart();
@@ -29,7 +31,6 @@ export default function ProductCard({ product }) {
 
   const handleAddToCart = (e) => {
     e.preventDefault();
-    // Using currentTarget ensures we find the card container correctly
     flyToCart(e); 
     addToCart(product);
   };
@@ -37,7 +38,8 @@ export default function ProductCard({ product }) {
   const onDirectBuy = (e) => {
     e.preventDefault();
     handleBuyNow(product, 1);
-    navigate('/checkout');
+    // FIXED: Use the obfuscated path from ROUTE_MAP instead of '/checkout'
+    navigate(ROUTE_MAP.CHECKOUT);
   };
 
   const productPath = `/product/${createSlug(product.name)}/${product.id}`;

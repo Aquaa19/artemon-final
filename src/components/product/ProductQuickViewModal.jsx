@@ -38,7 +38,7 @@ export default function ProductQuickViewModal() {
   const onDirectBuy = () => {
     handleBuyNow(product, quantity);
     closeModal();
-    navigate('/checkout');
+    navigate(ROUTE_MAP.CHECKOUT);
   };
 
   const handleToggleWishlist = (e) => {

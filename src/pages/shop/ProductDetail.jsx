@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
 import { firestoreService } from '../../services/db';
 import { flyToCart } from '../../utils/animations';
+import { ROUTE_MAP } from '../../App';
 
 export default function ProductDetail() {
   const { slug, id } = useParams(); 
@@ -45,7 +46,6 @@ export default function ProductDetail() {
 
   const handleAddToCart = (e) => {
     if (product) {
-      // Passes the click event to calculate the animation path to the cart
       flyToCart(e);
       addToCart(product, quantity);
     }
@@ -54,7 +54,7 @@ export default function ProductDetail() {
   const onDirectBuy = () => {
     if (product) {
       handleBuyNow(product, quantity);
-      navigate('/checkout');
+      navigate(ROUTE_MAP.CHECKOUT);
     }
   };
   
@@ -93,7 +93,6 @@ export default function ProductDetail() {
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Collection
         </Link>
 
-        {/* Main Product Section: The animation uses this container to locate the image */}
         <div className="bg-white rounded-[3rem] p-6 lg:p-10 shadow-sm border border-gray-100 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 mb-12">
           
           <div className="relative aspect-square bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 group flex items-center justify-center p-8">
@@ -177,7 +176,13 @@ export default function ProductDetail() {
                 <div key={rev.id} className="pb-8 border-b border-gray-50 last:border-0">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="bg-gray-100 p-2.5 rounded-2xl"><User className="w-6 h-6 text-gray-400" /></div>
+                      <div className="bg-gray-100 p-2.5 rounded-2xl">
+                        {rev.user_photo ? (
+                          <img src={rev.user_photo} className="w-6 h-6 rounded-full object-cover" alt="" />
+                        ) : (
+                          <User className="w-6 h-6 text-gray-400" />
+                        )}
+                      </div>
                       <div>
                         <p className="font-bold text-gray-900 leading-tight">{rev.user_name}</p>
                         {rev.isVerified && (
@@ -202,7 +207,8 @@ export default function ProductDetail() {
                     </div>
                     <span className="font-black text-gray-900">{rev.headline}</span>
                   </div>
-                  <p className="text-gray-600 leading-relaxed text-md">{rev.body}</p>
+                  {/* FIXED: Using rev.comment to match updated schema */}
+                  <p className="text-gray-600 leading-relaxed text-md">"{rev.comment}"</p>
                 </div>
               ))}
             </div>

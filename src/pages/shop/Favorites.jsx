@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import ProductCard from '../../components/product/ProductCard';
 import { Link } from 'react-router-dom';
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function Favorites() {
   const { user } = useAuth();
@@ -29,13 +31,14 @@ export default function Favorites() {
         </div>
       </div>
 
-      {/* --- SIMPLIFIED GUEST WARNING --- */}
+      {/* --- GUEST WARNING --- */}
       {!user && wishlist.length > 0 && (
         <div className="bg-amber-50 border-l-4 border-amber-500 text-amber-900 p-4 mb-8 rounded-lg flex items-center gap-3 shadow-md">
           <AlertTriangle className="w-6 h-6 shrink-0" />
           <p className="text-sm font-medium">
             Sign in to save your favorites permanently.
-            <Link to="/login" className="font-bold text-amber-700 hover:underline ml-2">Sign In</Link>
+            {/* Updated Link to use ROUTE_MAP.LOGIN */}
+            <Link to={ROUTE_MAP.LOGIN} className="font-bold text-amber-700 hover:underline ml-2">Sign In</Link>
           </p>
         </div>
       )}
@@ -45,7 +48,8 @@ export default function Favorites() {
           <Heart className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-600">Your wishlist is empty!</h2>
           <p className="text-gray-500 mt-2">Find something you love and save it here.</p>
-          <Link to="/shop" className="mt-6 inline-flex items-center bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-md">
+          {/* Updated Link to use ROUTE_MAP.SHOP */}
+          <Link to={ROUTE_MAP.SHOP} className="mt-6 inline-flex items-center bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-md">
             Start Shopping
           </Link>
         </div>

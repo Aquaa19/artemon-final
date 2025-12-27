@@ -30,9 +30,11 @@ import Inventory from './pages/admin/Inventory';
 import Orders from './pages/admin/Orders';
 import Users from './pages/admin/Users';
 import Reviews from './pages/admin/Reviews';
-import Subscribers from './pages/admin/Subscribers'; // NEW: Added Subscribers page
+import Subscribers from './pages/admin/Subscribers';
+// NEW: Import the Moderation Settings page
+import ModerationSettings from './pages/admin/ModerationSettings';
 
-// Support Pages - UPDATED: Added Terms
+// Support Pages
 import { 
   TrackOrder, ShippingInfo, Returns, FAQ, Privacy, Terms 
 } from './pages/support/SupportPages';
@@ -43,29 +45,38 @@ import ProductQuickViewModal from './components/product/ProductQuickViewModal';
 import LoadingScreen from './components/layout/LoadingScreen';
 import LoadingScreen2 from './components/layout/LoadingScreen2';
 
+// --- URL OBFUSCATION MAP ---
+export const ROUTE_MAP = {
+  HOME: '/',
+  SHOP: '/S0hPUDI0',
+  TRENDING: '/VFJFTkQyNA',
+  NEW_ARRIVALS: '/TkVXMjQ',
+  CART: '/Q0FSVDI0',
+  FAVORITES: '/RkFWMjQ',
+  SEARCH: '/U1JDSDI0',
+  LOGIN: '/TEdOMjQ',
+  REGISTER: '/UkdSMjQ',
+  PROFILE: '/UFJGMjQ',
+  CHECKOUT: '/Q0hLSDI0',
+  SUCCESS: '/U0NTUzI0',
+  TRACK: '/VFJLSTIONjQ',
+  ADMIN: '/QURNSTIONjQ'
+};
+
 // --- ROUTE GUARDS ---
 
-/**
- * Prevents logged-in users from accessing Login/Register
- */
 function PublicOnlyRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  return user ? <Navigate to="/shop" replace /> : children;
+  return user ? <Navigate to={ROUTE_MAP.SHOP} replace /> : children;
 }
 
-/**
- * Requires a user to be logged in
- */
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  return user ? children : <Navigate to="/login" replace />;
+  return user ? children : <Navigate to={ROUTE_MAP.LOGIN} replace />;
 }
 
-/**
- * Requires 'admin' role in profile or custom claims
- */
 function AdminRoute({ children }) {
   const { user, loading, isAdmin } = useAuth();
   if (loading) return null;
@@ -74,7 +85,6 @@ function AdminRoute({ children }) {
 
 function RouteTransitionHandler({ setLoading }) {
   const location = useLocation();
-
   useEffect(() => {
     setLoading(true);
     const timer = setTimeout(() => {
@@ -82,7 +92,6 @@ function RouteTransitionHandler({ setLoading }) {
     }, 800);
     return () => clearTimeout(timer);
   }, [location, setLoading]);
-
   return null; 
 }
 
@@ -95,25 +104,19 @@ function AnimatedRoutes({ setPageLoading }) {
         {/* Public Layout */}
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<Home />} />
-          <Route path="shop" element={<Shop />} />
-          <Route path="trending" element={<Shop trendingOnly={true} />} />
-          <Route path="new-arrivals" element={<Shop newArrivalsOnly={true} />} />
-          
+          <Route path={ROUTE_MAP.SHOP.substring(1)} element={<Shop />} />
+          <Route path={ROUTE_MAP.TRENDING.substring(1)} element={<Shop trendingOnly={true} />} />
+          <Route path={ROUTE_MAP.NEW_ARRIVALS.substring(1)} element={<Shop newArrivalsOnly={true} />} />
           <Route path="product/:slug/:id" element={<ProductDetail />} />
           <Route path="product/:slug/:id/write-review" element={<WriteReview />} />
-          
-          <Route path="cart" element={<Cart />} />
-          <Route path="favorites" element={<Favorites />} />
-          <Route path="search" element={<SearchPage />} />
-          
-          {/* Auth Guards */}
-          <Route path="login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
-          <Route path="register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
-          
-          <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-          
-          <Route path="order-success" element={<OrderSuccess />} />
+          <Route path={ROUTE_MAP.CART.substring(1)} element={<Cart />} />
+          <Route path={ROUTE_MAP.FAVORITES.substring(1)} element={<Favorites />} />
+          <Route path={ROUTE_MAP.SEARCH.substring(1)} element={<SearchPage />} />
+          <Route path={ROUTE_MAP.LOGIN.substring(1)} element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path={ROUTE_MAP.REGISTER.substring(1)} element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+          <Route path={ROUTE_MAP.PROFILE.substring(1)} element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path={ROUTE_MAP.CHECKOUT.substring(1)} element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+          <Route path={ROUTE_MAP.SUCCESS.substring(1)} element={<OrderSuccess />} />
           <Route path="track-order" element={<TrackOrder />} />
           <Route path="shipping" element={<ShippingInfo />} />
           <Route path="returns" element={<Returns />} />
@@ -123,13 +126,15 @@ function AnimatedRoutes({ setPageLoading }) {
         </Route>
 
         {/* Admin Routes */}
-        <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+        <Route path={ROUTE_MAP.ADMIN.substring(1)} element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="orders" element={<Orders />} />
           <Route path="users" element={<Users />} />
           <Route path="reviews" element={<Reviews />} />
-          <Route path="subscribers" element={<Subscribers />} /> {/* NEW: Registered Subscribers route */}
+          <Route path="subscribers" element={<Subscribers />} />
+          {/* NEW: Admin Moderation Settings Route */}
+          <Route path="moderation-settings" element={<ModerationSettings />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -182,9 +187,7 @@ function App() {
             <ScrollToTop />
             <RouteTransitionHandler setLoading={setPageLoading} />
             <LoadingManager initialLoad={initialLoad} pageLoading={pageLoading} />
-
             <AnimatedRoutes setPageLoading={setPageLoading} />
-
             <ProductQuickViewModal />
           </Router>
         </ProductModalProvider>

@@ -16,7 +16,7 @@ export default function WriteReview() {
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [headline, setHeadline] = useState('');
-  const [body, setBody] = useState('');
+  const [body, setBody] = useState(''); 
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -50,16 +50,17 @@ export default function WriteReview() {
     setError('');
 
     try {
-      // Save directly to Firestore 'reviews' collection
       await addDoc(collection(db, 'reviews'), {
         product_id: id,
         user_id: user.uid,
         user_email: user.email,
         user_name: user.displayName || user.email.split('@')[0],
+        // NEW: Save user's profile photo URL for admin display
+        user_photo: user.photoURL || null, 
         rating: Number(rating),
         headline: headline.trim(),
-        body: body.trim(),
-        status: 'approved', // Initial status set for immediate visibility
+        comment: body.trim(),
+        status: 'pending', 
         isVerified: true, 
         createdAt: serverTimestamp() 
       });
@@ -111,7 +112,6 @@ export default function WriteReview() {
         </Link>
 
         <div className="bg-white rounded-[3rem] overflow-hidden shadow-sm border border-gray-100">
-          {/* Header Area - background changed to bg-white for blending */}
           <div className="p-8 bg-white border-b border-gray-100 flex items-center gap-6">
             <div className="w-24 h-24 bg-white rounded-2xl border border-gray-100 p-2 flex items-center justify-center shrink-0">
               <img src={product.image} alt={product.name} className="max-w-full max-h-full object-contain" />
@@ -123,7 +123,6 @@ export default function WriteReview() {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 lg:p-12 space-y-10">
-            {/* Star Rating */}
             <div className="space-y-4 text-center">
               <label className="block text-xl font-black text-gray-900">How would you rate this toy?</label>
               <div className="flex justify-center gap-2">
@@ -148,7 +147,6 @@ export default function WriteReview() {
               </div>
             </div>
 
-            {/* Inputs */}
             <div className="space-y-6">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Review Headline</label>

@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import ProductCard from '../../components/product/ProductCard';
 import { firestoreService } from '../../services/db';
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function Home() {
   const [allTrending, setAllTrending] = useState([]);
@@ -108,14 +110,14 @@ export default function Home() {
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col-reverse lg:flex-row items-center gap-12">
           <div className="flex-1 text-center lg:text-left">
-            <Link to="/new-arrivals" className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 text-white text-sm font-bold mb-6 border border-white/20 backdrop-blur-md shadow-lg hover:bg-white/20 hover:scale-105 transition-all">
+            <Link to={ROUTE_MAP.NEW_ARRIVALS} className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 text-white text-sm font-bold mb-6 border border-white/20 backdrop-blur-md shadow-lg hover:bg-white/20 hover:scale-105 transition-all">
               <Gift className="w-4 h-4 mr-2" /> <span>New Arrivals for 2025</span>
             </Link>
             <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight leading-[1.1] mb-6">Playtime Reimagined <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-secondary-light to-secondary">With Wonder.</span></h1>
             <p className="mt-4 text-lg text-white/90 max-w-xl mx-auto lg:mx-0 font-medium leading-relaxed">Discover imagination with our safe, educational, and fun toys for children of all ages.</p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <Link to="/shop" className="shine-effect px-8 py-4 rounded-full bg-white text-primary font-bold text-lg shadow-lg transition-all">Shop Collection</Link>
-              <Link to="/trending" className="px-8 py-4 rounded-full bg-black/20 text-white font-bold text-lg border border-white/30 backdrop-blur-sm transition-all flex items-center justify-center gap-2">View Trending <ArrowRight className="w-5 h-5" /></Link>
+              <Link to={ROUTE_MAP.SHOP} className="shine-effect px-8 py-4 rounded-full bg-white text-primary font-bold text-lg shadow-lg transition-all">Shop Collection</Link>
+              <Link to={ROUTE_MAP.TRENDING} className="px-8 py-4 rounded-full bg-black/20 text-white font-bold text-lg border border-white/30 backdrop-blur-sm transition-all flex items-center justify-center gap-2">View Trending <ArrowRight className="w-5 h-5" /></Link>
             </div>
           </div>
           <div className="flex-1 relative w-full max-w-lg lg:max-w-none">
@@ -142,7 +144,6 @@ export default function Home() {
       </div>
 
       {/* Trending Wonders Section */}
-      {/* Anchor class always available on the outer wrapper for the tour to identify the section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 tour-target-trending">
         <div 
           className="bg-secondary rounded-[3rem] p-8 lg:p-16 relative overflow-hidden shadow-2xl"
@@ -181,7 +182,7 @@ export default function Home() {
                       style={{ width: `${100 / itemsPerPage}%` }}
                     >
                       {item.type === 'view-more' ? (
-                        <Link to="/trending" className="block h-full min-h-[400px] bg-white/10 hover:bg-white/20 border-2 border-white/30 border-dashed rounded-3xl flex flex-col items-center justify-center text-white group transition-all">
+                        <Link to={ROUTE_MAP.TRENDING} className="block h-full min-h-[400px] bg-white/10 hover:bg-white/20 border-2 border-white/30 border-dashed rounded-3xl flex flex-col items-center justify-center text-white group transition-all">
                           <div className="p-4 bg-white/20 rounded-full mb-4 group-hover:scale-110 transition-transform"><Layers className="w-8 h-8" /></div>
                           <h3 className="text-2xl font-bold mb-2">View All</h3>
                           <div className="flex items-center gap-2 font-bold bg-white text-secondary px-6 py-2 rounded-full shadow-lg">Browse <ArrowRight className="w-4 h-4" /></div>
@@ -207,7 +208,7 @@ export default function Home() {
               <span className="text-primary font-bold uppercase tracking-widest text-xs flex items-center gap-1"><Sparkles className="w-4 h-4" /> Fresh In</span>
               <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mt-2">New Arrivals</h2>
             </div>
-            <Link to="/new-arrivals" className="group flex items-center gap-2 text-gray-500 font-bold hover:text-primary transition-colors">View all new toys <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></Link>
+            <Link to={ROUTE_MAP.NEW_ARRIVALS} className="group flex items-center gap-2 text-gray-500 font-bold hover:text-primary transition-colors">View all new toys <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></Link>
         </div>
         {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">

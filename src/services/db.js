@@ -12,7 +12,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-  writeBatch // Added for bulk stock updates
+  writeBatch 
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -21,6 +21,8 @@ const REVIEWS_COLLECTION = 'reviews';
 const USERS_COLLECTION = 'users';
 const ORDERS_COLLECTION = 'orders';
 const SUBSCRIBERS_COLLECTION = 'subscribers';
+// NEW: Constant for Settings
+const SETTINGS_COLLECTION = 'settings';
 
 const optimizeImageUrl = (url) => {
   if (!url) return url;
@@ -149,7 +151,6 @@ export const firestoreService = {
     return await deleteDoc(docRef);
   },
 
-  // NEW: Optimized Birthday Storage
   updateUserProfile: async (userId, data) => {
     const userRef = doc(db, USERS_COLLECTION, userId);
     return await updateDoc(userRef, data);
@@ -173,9 +174,8 @@ export const firestoreService = {
     }
   },
 
-  // UPDATED: Create order and clear user cart in one flow
   createOrder: async (orderData, userId = null) => {
-    const batch = writeBatch(db); // Atomic operation
+    const batch = writeBatch(db);
     try {
       const ordersRef = collection(db, ORDERS_COLLECTION);
       const finalOrder = {
@@ -185,7 +185,6 @@ export const firestoreService = {
       const newOrderRef = doc(ordersRef);
       batch.set(newOrderRef, finalOrder);
 
-      // If user is logged in, clear their cloud cart
       if (userId) {
         const userRef = doc(db, USERS_COLLECTION, userId);
         batch.update(userRef, { cart: [] });
@@ -204,18 +203,18 @@ export const firestoreService = {
     return await updateDoc(docRef, { status });
   },
 
-  // NEW: Update Stock Quantities (Triggers Low Stock Alert)
   updateProductStock: async (productId, newCount) => {
     const productRef = doc(db, PRODUCTS_COLLECTION, productId);
     return await updateDoc(productRef, { stockCount: newCount });
   },
 
-  // --- REVIEW OPERATIONS ---
+  // --- REVIEW OPERATIONS (PUBLIC) ---
   getProductReviews: async (productId) => {
     try {
       const q = query(
         collection(db, REVIEWS_COLLECTION),
         where('product_id', '==', productId),
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
@@ -247,6 +246,24 @@ export const firestoreService = {
     }
   },
 
+  getFlaggedReviews: async () => {
+    try {
+      const q = query(
+        collection(db, REVIEWS_COLLECTION),
+        where('status', '==', 'flagged'),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error("Error fetching flagged reviews:", error);
+      throw error;
+    }
+  },
+
   updateReviewStatus: async (id, status) => {
     const docRef = doc(db, REVIEWS_COLLECTION, id);
     return await updateDoc(docRef, { status });
@@ -255,6 +272,31 @@ export const firestoreService = {
   deleteReview: async (id) => {
     const docRef = doc(db, REVIEWS_COLLECTION, id);
     return await deleteDoc(docRef);
+  },
+
+  // --- NEW: MODERATION SETTINGS OPERATIONS ---
+  getModerationSettings: async () => {
+    try {
+      const docRef = doc(db, SETTINGS_COLLECTION, 'moderation');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data().bannedWords || [];
+      }
+      return [];
+    } catch (error) {
+      console.error("Error fetching moderation settings:", error);
+      throw error;
+    }
+  },
+
+  updateModerationSettings: async (bannedWords) => {
+    try {
+      const docRef = doc(db, SETTINGS_COLLECTION, 'moderation');
+      return await updateDoc(docRef, { bannedWords });
+    } catch (error) {
+      console.error("Error updating moderation settings:", error);
+      throw error;
+    }
   },
 
   // --- SEARCH HISTORY ---

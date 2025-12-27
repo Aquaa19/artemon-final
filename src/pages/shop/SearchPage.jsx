@@ -1,9 +1,11 @@
 // Filename: src/pages/shop/SearchPage.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Clock, ArrowUpLeft, Loader2 } from 'lucide-react';
+import { Search, X, Clock, ArrowUpLeft, Loader2, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { firestoreService } from '../../services/db'; // Import cloud service
+import { firestoreService } from '../../services/db'; 
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
@@ -21,7 +23,6 @@ export default function SearchPage() {
   const loadHistory = async () => {
     setLoading(true);
     try {
-      // Fetch history from Firestore
       const data = await firestoreService.getSearchHistory(user.uid);
       setHistory(data || []);
     } catch (err) {
@@ -34,7 +35,6 @@ export default function SearchPage() {
   const saveHistory = async (text) => {
     if (!user || !text.trim()) return;
     try {
-      // Save search term to user profile in Firestore
       await firestoreService.saveSearchTerm(user.uid, text.trim());
     } catch (err) {
       console.error("Failed to save search to cloud:", err);
@@ -44,7 +44,6 @@ export default function SearchPage() {
   const deleteHistoryItem = async (term, e) => {
     e.stopPropagation();
     try {
-      // Remove specific term from cloud history
       const updatedHistory = history.filter(h => h !== term);
       await firestoreService.updateUserSearchHistory(user.uid, updatedHistory);
       setHistory(updatedHistory);
@@ -58,13 +57,15 @@ export default function SearchPage() {
     if (!query.trim()) return;
     
     saveHistory(query);
-    navigate(`/shop?search=${encodeURIComponent(query)}`);
+    // Updated navigate to use obfuscated SHOP route
+    navigate(`${ROUTE_MAP.SHOP}?search=${encodeURIComponent(query)}`);
   };
 
   const handleHistoryClick = (text) => {
     setQuery(text);
     saveHistory(text); 
-    navigate(`/shop?search=${encodeURIComponent(text)}`);
+    // Updated navigate to use obfuscated SHOP route
+    navigate(`${ROUTE_MAP.SHOP}?search=${encodeURIComponent(text)}`);
   };
 
   return (
@@ -157,7 +158,8 @@ export default function SearchPage() {
                         </div>
                         <p className="text-gray-500 font-bold mb-6">Sign in to sync your search history across devices.</p>
                         <button 
-                            onClick={() => navigate('/login')}
+                            /* Updated navigate to use obfuscated LOGIN route */
+                            onClick={() => navigate(ROUTE_MAP.LOGIN)}
                             className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
                         >
                             Sign In Now

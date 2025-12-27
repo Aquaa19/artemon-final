@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ArrowRight, ShoppingBag, ShieldCheck, UserCircle, Loader } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function Cart() {
   const { cartItems, removeFromCart, updateQuantity, getCartTotal, cartLoading } = useCart();
@@ -30,8 +32,9 @@ export default function Cart() {
         <p className="text-gray-500 mb-8 max-w-sm text-lg">
           Looks like you haven't found the perfect toy yet. Let's fix that!
         </p>
+        {/* Updated Link to use ROUTE_MAP.SHOP */}
         <Link 
-          to="/shop" 
+          to={ROUTE_MAP.SHOP} 
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center gap-2"
         >
           Start Shopping <ArrowRight className="w-5 h-5" />
@@ -51,7 +54,8 @@ export default function Cart() {
               <UserCircle className="w-6 h-6 text-amber-500" />
               <p className="text-sm text-amber-800 font-medium">Sign in to save your cart permanently.</p>
             </div>
-            <Link to="/login" className="text-sm bg-white text-amber-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-amber-100 transition">Sign In</Link>
+            {/* Updated Link to use ROUTE_MAP.LOGIN */}
+            <Link to={ROUTE_MAP.LOGIN} className="text-sm bg-white text-amber-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-amber-100 transition">Sign In</Link>
           </div>
         )}
 
@@ -98,7 +102,8 @@ export default function Cart() {
               </div>
               
               <button 
-                onClick={() => navigate('/checkout')}
+                /* Updated navigate to use ROUTE_MAP.CHECKOUT */
+                onClick={() => navigate(ROUTE_MAP.CHECKOUT)}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform active:scale-95"
               >
                 Checkout Now

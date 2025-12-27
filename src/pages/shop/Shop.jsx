@@ -1,10 +1,11 @@
-// Filename: src/pages/shop/Shop.jsx
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import ProductList from '../../components/product/ProductList';
 import { Filter, Flame, Sparkles, Heart, Search } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { firestoreService } from '../../services/db'; // Import the new service
+import { firestoreService } from '../../services/db';
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function Shop({ trendingOnly = false, newArrivalsOnly = false, favoritesOnly = false }) {
   const [products, setProducts] = useState([]);
@@ -30,7 +31,6 @@ export default function Shop({ trendingOnly = false, newArrivalsOnly = false, fa
     setLoading(true);
     setError(null);
     try {
-      // Use firestoreService instead of fetch
       const data = await firestoreService.getProducts({
         category: currentCategory,
         trending: trendingOnly,
@@ -102,7 +102,9 @@ export default function Shop({ trendingOnly = false, newArrivalsOnly = false, fa
 
         {/* Content */}
         {loading ? (
-          <div className="flex justify-center items-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          </div>
         ) : error ? (
           <div className="text-center py-20 bg-white rounded-xl border border-red-100">
             <p className="text-red-500 font-medium mb-2">Oops! Something went wrong.</p>
@@ -111,8 +113,15 @@ export default function Shop({ trendingOnly = false, newArrivalsOnly = false, fa
           </div>
         ) : products.length === 0 ? (
            <div className="text-center py-20 text-gray-500">
-             {favoritesOnly ? "You haven't added any favorites yet!" : searchQuery ? "No items found matching your search." : "No products found."}
-             {favoritesOnly && <div className="mt-4"><a href="/shop" className="text-primary font-bold hover:underline">Go Shop</a></div>}
+             <p>{favoritesOnly ? "You haven't added any favorites yet!" : searchQuery ? "No items found matching your search." : "No products found."}</p>
+             {/* Updated Link to use ROUTE_MAP */}
+             {favoritesOnly && (
+               <div className="mt-4">
+                 <Link to={ROUTE_MAP.SHOP} className="text-primary font-bold hover:underline">
+                   Go Shop
+                 </Link>
+               </div>
+             )}
            </div>
         ) : (
           <ProductList products={products} />

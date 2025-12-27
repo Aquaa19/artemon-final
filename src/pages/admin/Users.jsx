@@ -1,13 +1,12 @@
-// Filename: src/pages/admin/Users.jsx
 import { useEffect, useState } from 'react';
-import { Users as UsersIcon, Trash2, Shield, Loader2 } from 'lucide-react';
+import { Users as UsersIcon, Trash2, Shield, Loader2, User as UserPlaceholder } from 'lucide-react';
 import { firestoreService } from '../../services/db';
-import { useAuth } from '../../context/AuthContext'; // Use the new auth method
+import { useAuth } from '../../context/AuthContext';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null); // Local state for button loading
+  const [deletingId, setDeletingId] = useState(null);
   const { deleteUserPermanently } = useAuth();
 
   useEffect(() => {
@@ -33,10 +32,7 @@ export default function Users() {
 
     setDeletingId(user.id);
     try {
-      // Professional: Call the Cloud Function that handles the 3-step wipe
       await deleteUserPermanently(user.id); 
-      
-      // Update UI immediately
       setUsers(prev => prev.filter(u => u.id !== user.id));
       alert("User and sessions successfully wiped.");
     } catch (err) {
@@ -81,8 +77,18 @@ export default function Users() {
               <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="p-5">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-lg border border-indigo-100">
-                      {user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
+                    {/* UPDATED: Profile Picture Rendering */}
+                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-lg border border-indigo-100 overflow-hidden shrink-0">
+                      {user.photoURL ? (
+                        <img 
+                          src={user.photoURL} 
+                          alt={user.displayName || 'User'} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        user.displayName ? user.displayName.charAt(0).toUpperCase() : <UserPlaceholder className="w-5 h-5" />
+                      )}
                     </div>
                     <div>
                       <p className="font-black text-gray-900 leading-tight">{user.displayName || 'Anonymous User'}</p>
@@ -102,7 +108,7 @@ export default function Users() {
                 <td className="p-5 text-sm font-bold text-gray-500">
                   {user.createdAt?.toDate 
                     ? user.createdAt.toDate().toLocaleDateString() 
-                    : new Date(user.createdAt).toLocaleDateString()}
+                    : user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                 </td>
                 <td className="p-5 text-right">
                   <button 

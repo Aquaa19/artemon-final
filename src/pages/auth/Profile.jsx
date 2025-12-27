@@ -1,4 +1,3 @@
-// Filename: src/pages/auth/Profile.jsx
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -8,6 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../services/firebase'; 
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { ROUTE_MAP } from '../../App';
 
 export default function Profile() {
   const { user, logout, updateUserAddress } = useAuth(); 
@@ -16,14 +16,13 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   
-  // Updated formData to include birthday fields
   const [formData, setFormData] = useState({ 
     displayName: '', 
     address: '',
     city: '',
     zip: '',
     country: 'India',
-    birthday: '' // Format: YYYY-MM-DD
+    birthday: '' 
   });
 
   const navigate = useNavigate();
@@ -64,7 +63,6 @@ export default function Profile() {
     e.preventDefault();
     setUpdateLoading(true);
     try {
-      // Process birthday for optimized Cloud Function querying
       let birthdayData = {};
       if (formData.birthday) {
         const [year, month, day] = formData.birthday.split('-').map(Number);
@@ -92,7 +90,7 @@ export default function Profile() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate(ROUTE_MAP.LOGIN);
   };
 
   if (!user) return <div className="p-20 text-center font-bold">Please log in to view your profile.</div>;
@@ -103,17 +101,26 @@ export default function Profile() {
         
         {/* User Card */}
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 mb-8 relative overflow-hidden">
-            {/* Background Decorative Sparkle */}
             <Star className="absolute -top-10 -right-10 w-40 h-40 text-indigo-50 opacity-50" />
             
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6 relative z-10">
-               <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 text-4xl font-bold border-4 border-white shadow-sm">
-                 {user.displayName?.charAt(0).toUpperCase() || <User />}
+               {/* Profile Picture with smooth transition */}
+               <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 text-4xl font-bold border-4 border-white shadow-sm overflow-hidden transition-all duration-500">
+                 {user.photoURL ? (
+                   <img 
+                    src={user.photoURL} 
+                    alt={user.displayName || "User"} 
+                    className="w-full h-full object-cover animate-fade-in"
+                    referrerPolicy="no-referrer"
+                   />
+                 ) : (
+                   user.displayName?.charAt(0).toUpperCase() || <User />
+                 )}
                </div>
                
                <div className="flex-1 space-y-1">
                  <div className="flex items-center gap-3">
-                     <h1 className="text-3xl font-extrabold text-gray-900">{user.displayName}</h1>
+                     <h1 className="text-3xl font-extrabold text-gray-900">{user.displayName || 'Joyful Explorer'}</h1>
                      <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-indigo-100">
                          {user.role || 'Customer'}
                      </span>
@@ -157,7 +164,6 @@ export default function Profile() {
               </div>
 
               <form onSubmit={handleUpdateProfile} className="space-y-6 relative z-10">
-                {/* Personal Section */}
                 <div className="space-y-4">
                   <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
                     <Cake className="w-3 h-3" /> Child's Birthday
@@ -174,7 +180,6 @@ export default function Profile() {
                   <p className="text-[10px] text-gray-400 font-bold ml-1 italic">We'll send a magical surprise 7 days before the big day! 🚀</p>
                 </div>
 
-                {/* Address Section */}
                 <div className="space-y-4 pt-2">
                   <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
                     <MapPin className="w-3 h-3" /> Delivery Address
@@ -206,7 +211,6 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Order History */}
         <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
           <Package className="w-6 h-6 text-indigo-600" /> Order History
         </h2>

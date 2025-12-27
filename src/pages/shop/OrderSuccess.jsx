@@ -1,6 +1,8 @@
 // Filename: src/pages/shop/OrderSuccess.jsx
 import { Link } from 'react-router-dom';
-import { CheckCircle, Home, ShoppingBag } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
+// Import the route map from App.jsx
+import { ROUTE_MAP } from '../../App';
 
 export default function OrderSuccess() {
   return (
@@ -15,10 +17,12 @@ export default function OrderSuccess() {
         </p>
 
         <div className="space-y-3">
-          <Link to="/shop" className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all">
+          {/* Updated Link to use ROUTE_MAP.SHOP */}
+          <Link to={ROUTE_MAP.SHOP} className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all">
             Continue Shopping
           </Link>
-          <Link to="/" className="block w-full bg-white border-2 border-gray-100 hover:border-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all">
+          {/* Updated Link to use ROUTE_MAP.HOME */}
+          <Link to={ROUTE_MAP.HOME} className="block w-full bg-white border-2 border-gray-100 hover:border-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all">
             Back to Home
           </Link>
         </div>

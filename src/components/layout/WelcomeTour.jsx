@@ -46,14 +46,23 @@ export default function WelcomeTour() {
   const [isVisible, setIsVisible] = useState(false);
   const [spotlight, setSpotlight] = useState({ x: 0, y: 0, size: 0 });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMeasuring, setIsMeasuring] = useState(false);
   const retryCount = useRef(0);
+  
+  // Initial center position defined as pixel values to prevent the 0,0 jump
+  const prevTooltipStyles = useRef({
+    position: 'absolute',
+    top: `${window.innerHeight / 2 - 120}px`,
+    left: `${window.innerWidth / 2 - 160}px`,
+    width: '320px'
+  });
 
   const updateSpotlightPosition = useCallback(() => {
     if (currentStep >= 0 && currentStep < TOUR_STEPS.length) {
       const step = TOUR_STEPS[currentStep];
       
       if (step.target) {
-        // Use requestAnimationFrame or a small timeout to ensure DOM is ready
+        setIsMeasuring(true);
         const findAndMeasure = () => {
           const elements = document.querySelectorAll(step.target);
           const el = Array.from(elements).find(e => {
@@ -62,10 +71,8 @@ export default function WelcomeTour() {
           });
 
           if (el) {
-            // Scroll to the element first
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            // Wait for scroll to settle before measuring (essential for Trending section)
             setTimeout(() => {
               const rect = el.getBoundingClientRect();
               const mobile = window.innerWidth < 768;
@@ -74,19 +81,22 @@ export default function WelcomeTour() {
               const centerX = rect.left + rect.width / 2;
               const centerY = rect.top + rect.height / 2;
               
-              // Refined sizing: Mobile trending needs a large enough circle to see the cards
-              const padding = step.id === 'trending' ? (mobile ? 120 : 160) : (mobile ? 25 : 40);
-              const baseSize = Math.max(rect.width, rect.height);
+              let baseSize = Math.max(rect.width, rect.height);
+              if (!mobile && step.id === 'trending') {
+                baseSize = Math.min(baseSize, 550); 
+              }
+
+              const padding = step.id === 'trending' ? (mobile ? 120 : 80) : (mobile ? 25 : 40);
 
               setSpotlight({
                 x: centerX,
                 y: centerY,
                 size: (baseSize / 2) + padding
               });
-              retryCount.current = 0; // Reset on success
-            }, 300); 
+              setIsMeasuring(false);
+              retryCount.current = 0;
+            }, 450); // Balanced delay for smooth scroll completion
           } else if (retryCount.current < 5) {
-            // If element not found (e.g. still loading), retry 5 times
             retryCount.current++;
             setTimeout(findAndMeasure, 200);
           }
@@ -95,6 +105,7 @@ export default function WelcomeTour() {
         findAndMeasure();
       } else {
         setSpotlight({ x: 0, y: 0, size: 0 });
+        setIsMeasuring(false);
       }
     }
   }, [currentStep]);
@@ -135,32 +146,55 @@ export default function WelcomeTour() {
   const Icon = step.icon;
 
   const getTooltipStyles = () => {
-    if (!step.target) return {}; 
+    // Hold the box at its last known valid pixel position while scrolling/measuring
+    if (isMeasuring || (step.target && spotlight.size === 0)) return prevTooltipStyles.current;
 
-    if (isMobile) {
-      return {
+    let styles = {};
+
+    if (!step.target) {
+      styles = {
+        position: 'absolute',
+        top: `${window.innerHeight / 2 - 120}px`,
+        left: `${window.innerWidth / 2 - 160}px`,
+        width: '320px'
+      };
+    } else if (isMobile) {
+      styles = {
+        position: 'fixed',
         bottom: '20px',
         left: '10px',
         right: '10px',
-        width: 'calc(100% - 20px)',
-        transform: 'none'
+        width: 'calc(100% - 20px)'
+      };
+    } else {
+      const tooltipHeight = 240; 
+      const spaceAbove = spotlight.y - spotlight.size;
+      const spaceBelow = window.innerHeight - (spotlight.y + spotlight.size);
+      
+      let topPos = spaceAbove > spaceBelow 
+        ? spotlight.y - spotlight.size - tooltipHeight - 30 
+        : spotlight.y + spotlight.size + 30;
+
+      const clampedTop = Math.max(20, Math.min(topPos, window.innerHeight - tooltipHeight - 40));
+
+      styles = {
+        position: 'absolute',
+        top: `${clampedTop}px`,
+        left: `${Math.min(Math.max(20, spotlight.x - 160), window.innerWidth - 340)}px`,
+        width: '320px'
       };
     }
 
-    return {
-      top: spotlight.y > window.innerHeight / 2 
-        ? spotlight.y - spotlight.size - 220 
-        : spotlight.y + spotlight.size + 30,
-      left: Math.min(Math.max(20, spotlight.x - 160), window.innerWidth - 340),
-      width: '320px'
-    };
+    prevTooltipStyles.current = styles;
+    return styles;
   };
 
   return (
     <div className="fixed inset-0 z-[9990] overflow-hidden pointer-events-none">
-      {/* HIGH FIDELITY OVERLAY */}
-      <div 
-        className="tour-overlay pointer-events-auto transition-all duration-500"
+      {/* Background Overlay with improved transition and subtle blur */}
+      <motion.div 
+        layout
+        className="tour-overlay absolute inset-0 pointer-events-auto backdrop-blur-[2px]"
         style={{
           WebkitMaskImage: spotlight.size > 0 
             ? `radial-gradient(circle ${spotlight.size}px at ${spotlight.x}px ${spotlight.y}px, transparent 99%, black 100%)`
@@ -168,57 +202,74 @@ export default function WelcomeTour() {
           maskImage: spotlight.size > 0 
             ? `radial-gradient(circle ${spotlight.size}px at ${spotlight.x}px ${spotlight.y}px, transparent 99%, black 100%)`
             : 'none',
-          backgroundColor: step.id === 'trending' ? 'rgba(0, 0, 0, 0.92)' : 'rgba(0, 0, 0, 0.85)'
+          backgroundColor: step.id === 'trending' ? 'rgba(0, 0, 0, 0.94)' : 'rgba(0, 0, 0, 0.85)'
         }}
+        transition={{ duration: 0.8, ease: "easeInOut" }}
         onClick={completeTour}
       />
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         <motion.div
-          key={currentStep}
-          initial={{ opacity: 0, scale: 0.9, y: isMobile ? 40 : 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: isMobile ? 40 : -20 }}
-          className={`tour-tooltip pointer-events-auto shadow-2xl relative ${
-            !step.target ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm' : 'absolute'
-          }`}
+          key="tour-dialogue"
+          layout
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{
+            layout: { type: "spring", stiffness: 140, damping: 22 },
+            opacity: { duration: 0.3 }
+          }}
+          className="tour-tooltip pointer-events-auto shadow-2xl bg-white rounded-[2.5rem] border border-gray-100 p-8"
           style={getTooltipStyles()}
         >
-          {step.target && !isMobile && (
-            <div 
-              className={`absolute w-4 h-4 bg-white rotate-45 border-gray-100 border-l border-t 
-                ${spotlight.y > window.innerHeight / 2 ? '-bottom-2' : '-top-2'} 
+          {step.target && !isMobile && !isMeasuring && (
+            <motion.div 
+              layout
+              className={`absolute w-5 h-5 bg-white rotate-45 border-gray-100 border-l border-t 
+                ${spotlight.y > window.innerHeight / 2 ? '-bottom-2.5' : '-top-2.5'} 
                 left-1/2 -translate-x-1/2`}
             />
           )}
 
-          <button onClick={completeTour} className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 p-1">
+          <button onClick={completeTour} className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 p-1.5 transition-colors z-10">
             <X className="w-5 h-5" />
           </button>
 
-          <div className="flex flex-col items-center text-center p-2">
-            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-              <Icon className="w-7 h-7" />
-            </div>
+          <div className="flex flex-col items-center text-center">
+            <motion.div 
+              layout 
+              key={`icon-${currentStep}`} 
+              className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-5 shadow-inner"
+            >
+              <Icon className="w-8 h-8" />
+            </motion.div>
             
-            <h3 className="text-xl font-black text-gray-900 mb-2 leading-tight">{step.title}</h3>
-            <p className="text-gray-500 text-sm font-medium mb-8 leading-relaxed">{step.desc}</p>
+            <motion.h3 layout className="text-2xl font-black text-gray-900 mb-3 leading-tight tracking-tight">
+              {step.title}
+            </motion.h3>
+            <motion.p layout className="text-gray-500 text-sm font-medium mb-10 leading-relaxed max-w-[240px]">
+              {step.desc}
+            </motion.p>
 
-            <div className="flex items-center justify-between w-full">
-              <div className="flex gap-1.5">
+            <motion.div layout className="flex items-center justify-between w-full">
+              <div className="flex gap-2">
                 {TOUR_STEPS.map((_, i) => (
-                  <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === currentStep ? 'w-6 bg-indigo-600' : 'w-1.5 bg-gray-200'}`} />
+                  <motion.div 
+                    layout 
+                    key={`dot-${i}`} 
+                    className={`h-1.5 rounded-full transition-all duration-300 ${i === currentStep ? 'w-8 bg-indigo-600' : 'w-1.5 bg-gray-200'}`} 
+                  />
                 ))}
               </div>
 
               <button 
-                onClick={handleNext}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 transition-all active:scale-95"
+                onClick={handleNext} 
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white pl-6 pr-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-100 transition-all active:scale-95"
               >
-                {currentStep === TOUR_STEPS.length - 1 ? 'Start Exploring' : 'Next'}
+                {currentStep === TOUR_STEPS.length - 1 ? 'Start Playing' : 'Next'}
                 <ArrowRight className="w-4 h-4" />
               </button>
-            </div>
+            </motion.div>
           </div>
         </motion.div>
       </AnimatePresence>

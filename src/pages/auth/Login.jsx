@@ -1,21 +1,25 @@
-// Filename: src/pages/auth/Login.jsx
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Mail, Lock, LogIn, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+// Added Eye and EyeOff icons
+import { Mail, Lock, LogIn, Loader2, Sparkles, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { ROUTE_MAP } from '../../App';
 
 export default function Login() {
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from || '/shop';
+  const from = location.state?.from || ROUTE_MAP.SHOP;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // NEW: State for password visibility
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -98,12 +102,21 @@ export default function Login() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input 
                   required 
-                  type="password" 
+                  // Toggle between password and text type
+                  type={showPassword ? "text" : "password"} 
                   placeholder="••••••••" 
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                  className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                 />
+                {/* NEW: Visibility Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
@@ -120,7 +133,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Divider */}
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-gray-100"></span>
@@ -130,7 +142,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Google Button */}
           <button
             type="button"
             disabled={loading || googleLoading}
@@ -148,14 +159,13 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Informative Footer Links (Non-blocking) */}
         <p className="text-center mt-8 text-xs text-gray-500 font-medium px-4 leading-relaxed">
           By signing in, you agree to Artemon Joy's <br />
           <Link to="/privacy" className="text-indigo-600 hover:underline">Privacy Policy</Link> and <Link to="/terms" className="text-indigo-600 hover:underline">Terms of Service</Link>.
         </p>
 
         <p className="text-center mt-4 text-gray-500 font-medium">
-          Don't have an account? <Link to="/register" className="text-indigo-600 font-bold hover:underline">Join the Joy</Link>
+          Don't have an account? <Link to={ROUTE_MAP.REGISTER} className="text-indigo-600 font-bold hover:underline">Join the Joy</Link>
         </p>
       </div>
     </div>

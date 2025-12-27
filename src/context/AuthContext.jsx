@@ -23,7 +23,6 @@ export function AuthProvider({ children }) {
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
 
-          // CRITICAL: Prevent force sign-out loop if document hasn't propagated yet
           if (!userDoc.exists()) {
             console.warn("Firestore profile pending...");
             return; 
@@ -36,6 +35,8 @@ export function AuthProvider({ children }) {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
+            // UPDATED: Ensure photoURL is pulled from Auth if missing in Firestore
+            photoURL: firebaseUser.photoURL || userData.photoURL || null,
             role: idTokenResult.claims.role || userData.role || 'customer',
             ...userData
           });
@@ -53,16 +54,12 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  // UPDATED: Now dynamically handles address AND birthday fields
   const updateUserAddress = async (profileData) => {
     if (!user) return;
     try {
       const userRef = doc(db, 'users', user.uid);
-      
-      // Update Firestore
       await updateDoc(userRef, profileData);
 
-      // Sync local state immediately for UI responsiveness
       setUser(prev => ({
         ...prev,
         ...profileData
@@ -81,22 +78,25 @@ export function AuthProvider({ children }) {
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       const userDoc = await getDoc(userDocRef);
 
-      // FIXED: Ensure new Google users have a Firestore profile BEFORE redirecting
       if (!userDoc.exists()) {
         const initialData = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
+          photoURL: firebaseUser.photoURL, // Saved for new users
           role: 'customer',
           createdAt: serverTimestamp(),
           cart: [],
           wishlist: []
         };
         await setDoc(userDocRef, initialData);
-        
-        // Update state manually to break the loading loop
         setUser(initialData);
+      } else {
+        // UPDATED: Sync photoURL for returning users if it's missing in Firestore
+        const existingData = userDoc.data();
+        if (!existingData.photoURL && firebaseUser.photoURL) {
+          await updateDoc(userDocRef, { photoURL: firebaseUser.photoURL });
+        }
       }
       return firebaseUser;
     } catch (error) {

@@ -9,17 +9,15 @@ import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
 import sharp from "sharp";
+import { LanguageServiceClient } from "@google-cloud/language";
 
 admin.initializeApp();
 const db = admin.firestore();
+const languageClient = new LanguageServiceClient();
 
 const BASE_URL = "https://artemonjoy.com";
 const LOGO_URL = `${BASE_URL}/artemon_joy_logo.png`;
 
-/**
- * EMAIL SETUP
- * Hard-coded password reverted as requested.
- */
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -28,9 +26,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-/**
- * High-Fidelity Branded Email Template
- */
 const emailTemplate = (content: string) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -85,9 +80,7 @@ const emailTemplate = (content: string) => `
 `;
 
 // --- 1. AUTHENTICATION ---
-export const sendOTP = functions.onCall({ 
-  region: "asia-south1"
-}, async (request) => {
+export const sendOTP = functions.onCall({ region: "asia-south1" }, async (request) => {
   const email = request.data.email;
   if (!email) throw new functions.HttpsError("invalid-argument", "Email required");
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -133,7 +126,6 @@ export const onCartUpdated = firestore.onDocumentUpdated({
 }, async (event) => {
   const afterData = event.data?.after.data();
   if (!afterData) return; 
-
   if (afterData.cart?.length > (event.data?.before.data()?.cart?.length || 0)) {
     await db.collection("abandoned_carts").doc(event.params.userId).set({
       email: afterData.email, displayName: afterData.displayName,
@@ -200,7 +192,6 @@ export const onProductStockUpdated = firestore.onDocumentUpdated({
   const after = event.data?.after.data();
   const before = event.data?.before.data();
   if (!after || !before) return; 
-
   if (after.stockCount < 5 && before.stockCount >= 5) {
     await transporter.sendMail({
       from: '"Inventory Alert"', to: "artemonjoy@gmail.com", subject: `🚨 Low Stock: ${after.name}`,
@@ -223,9 +214,7 @@ export const dailySalesSummary = scheduler.onSchedule({
 });
 
 // --- 6. IMAGE OPTIMIZATION (SHARP) ---
-export const onImageUpload = storage.onObjectFinalized({ 
-  region: "asia-south1" 
-}, async (event) => {
+export const onImageUpload = storage.onObjectFinalized({ region: "asia-south1" }, async (event) => {
   const filePath = event.data.name;
   if (!filePath || filePath.endsWith(".webp") || filePath.startsWith("optimized/")) return;
   const fileName = path.basename(filePath);
@@ -241,9 +230,7 @@ export const onImageUpload = storage.onObjectFinalized({
 });
 
 // --- 7. NEWSLETTER ---
-export const pushNewsletter = functions.onCall({ 
-  region: "asia-south1"
-}, async (req) => {
+export const pushNewsletter = functions.onCall({ region: "asia-south1" }, async (req) => {
   const snapshot = await db.collection("subscribers").get();
   const emails = snapshot.docs.map(d => d.data().email);
   if (emails.length) {
@@ -259,4 +246,90 @@ export const onSubscriberCreated = firestore.onDocumentCreated({
   const data = event.data?.data();
   if (!data) return;
   await transporter.sendMail({ from: '"Artemon Joy"', to: data.email, subject: "Welcome! 🚀", html: emailTemplate(`<p>Thanks for subscribing 🎉</p>`) });
+});
+
+// --- 8. REVIEW MODERATION (SELF-LEARNING) ---
+export const onReviewCreated = firestore.onDocumentCreated({
+  document: "reviews/{reviewId}",
+  region: "asia-south1"
+}, async (event) => {
+  const reviewData = event.data?.data();
+  if (!reviewData || !reviewData.comment) return;
+
+  try {
+    // 1. Fetch current dynamic settings
+    const settingsRef = db.collection("settings").doc("moderation");
+    const settingsDoc = await settingsRef.get();
+    let restrictedKeywords: string[] = ["hate", "stupid", "idiot", "scam"]; 
+
+    if (settingsDoc.exists) {
+      restrictedKeywords = settingsDoc.data()?.bannedWords || restrictedKeywords;
+    }
+
+    const document = {
+      content: reviewData.comment,
+      type: "PLAIN_TEXT" as const,
+    };
+
+    // 2. Perform AI Sentiment and Entity Analysis
+    const [sentimentResult] = await languageClient.analyzeSentiment({ document });
+    const [entityResult] = await languageClient.analyzeEntities({ document });
+    
+    const sentiment = sentimentResult.documentSentiment;
+    const entities = entityResult.entities || [];
+
+    // 3. Word-Based Filtering
+    const hasRestrictedContent = restrictedKeywords.some(word => 
+      reviewData.comment.toLowerCase().includes(word.toLowerCase())
+    );
+
+    // 4. SELF-LEARNING LOGIC
+    if (sentiment?.score && sentiment.score < -0.8) {
+      const toxicRoots = entities
+        .filter(e => e.type !== 'PERSON' && e.salience && e.salience > 0.1)
+        .map(e => e.name?.toLowerCase())
+        .filter((val): val is string => !!val);
+
+      if (toxicRoots.length > 0) {
+        await settingsRef.update({
+          bannedWords: admin.firestore.FieldValue.arrayUnion(...toxicRoots)
+        });
+      }
+    }
+
+    // 5. Flagging Logic (FIXED MAPPING)
+    if ((sentiment?.score && sentiment.score < -0.6) || hasRestrictedContent) {
+      // Determine the specific reason
+      const reason = hasRestrictedContent ? "Restricted Language" : "AI Self-Learned Toxic Pattern";
+      
+      // Update the document with explicit reason
+      await event.data?.ref.update({
+        status: "flagged",
+        moderationData: {
+          sentimentScore: sentiment?.score || 0,
+          flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+          flaggedReason: reason // Re-confirmed field name
+        }
+      });
+
+      // Admin Notification Email
+      await transporter.sendMail({
+        from: '"AI Moderation Bot"',
+        to: "artemonjoy@gmail.com",
+        subject: "🤖 Review Flagged & AI Updated",
+        html: emailTemplate(`
+          <h3>Moderation Update:</h3>
+          <p><b>User:</b> ${reviewData.user_name}</p>
+          <p><b>Comment:</b> "${reviewData.comment}"</p>
+          <p><b>Flag Reason:</b> ${reason}</p>
+          <p><b>Sentiment:</b> ${sentiment?.score}</p>
+        `)
+      });
+    } else {
+      await event.data?.ref.update({ status: "approved" });
+    }
+  } catch (error) {
+    console.error("Moderation Error:", error);
+    await event.data?.ref.update({ status: "approved" });
+  }
 });
