@@ -9,7 +9,8 @@ import {
   LogOut, 
   MessageSquare,
   Mail,
-  ShieldCheck // Added for moderation settings
+  ShieldCheck,
+  Sparkles // Added for AI Console
 } from 'lucide-react';
 import { ROUTE_MAP } from '../../App';
 
@@ -25,10 +26,16 @@ export default function Sidebar() {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Overview', path: ROUTE_MAP.ADMIN },
+    // NEW: AI Console for Global Analytics
+    { 
+      icon: Sparkles, 
+      label: 'AI Console', 
+      path: `${ROUTE_MAP.ADMIN}/ai-console`,
+      isNew: true 
+    },
     { icon: Package, label: 'Inventory', path: `${ROUTE_MAP.ADMIN}/inventory` },
     { icon: ShoppingBag, label: 'Orders', path: `${ROUTE_MAP.ADMIN}/orders` },
     { icon: MessageSquare, label: 'Reviews', path: `${ROUTE_MAP.ADMIN}/reviews` },
-    // NEW: Moderation Settings Tab
     { icon: ShieldCheck, label: 'Moderation AI', path: `${ROUTE_MAP.ADMIN}/moderation-settings` },
     { icon: Users, label: 'Customers', path: `${ROUTE_MAP.ADMIN}/users` },
     { icon: Mail, label: 'Subscribers', path: `${ROUTE_MAP.ADMIN}/subscribers` },
@@ -48,14 +55,21 @@ export default function Sidebar() {
             <Link 
               key={item.path} 
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+              className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
                 isActive 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' 
                   : 'text-gray-500 hover:bg-gray-50 hover:text-indigo-600'
               }`}
             >
-              <item.icon className="w-5 h-5" />
-              {item.label}
+              <div className="flex items-center gap-3">
+                <item.icon className={`w-5 h-5 ${item.isNew && !isActive ? 'text-indigo-500 animate-pulse' : ''}`} />
+                {item.label}
+              </div>
+              {item.isNew && !isActive && (
+                <span className="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full uppercase font-black">
+                  Live
+                </span>
+              )}
             </Link>
           )
         })}

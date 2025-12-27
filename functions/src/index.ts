@@ -10,10 +10,60 @@ import * as os from "os";
 import * as fs from "fs";
 import sharp from "sharp";
 import { LanguageServiceClient } from "@google-cloud/language";
+import { VertexAI, FunctionDeclarationSchemaType, Content } from "@google-cloud/vertexai";
 
 admin.initializeApp();
 const db = admin.firestore();
 const languageClient = new LanguageServiceClient();
+
+// Safer Project ID resolution
+const PROJECT_ID = process.env.GCLOUD_PROJECT || admin.app().options.projectId || "";
+const REGION = "asia-south1";
+
+// Vertex AI Setup - Gemini 2.0 Flash with Combined Intelligence Instructions
+const vertexAI = new VertexAI({ project: PROJECT_ID, location: "us-central1" });
+const generativeModel = vertexAI.getGenerativeModel({
+  model: "gemini-2.0-flash-001",
+  systemInstruction: {
+    role: "system",
+    parts: [{ 
+      text: `You are Artemon Joy IQ, the marketplace's primary data analyst, personalized shopping guide, and Business Intelligence Engine.
+      
+      CRITICAL LOGIC DIRECTIVES:
+      1. NEVER say "I cannot filter," "I cannot calculate," "I cannot check," "I don't have access," "I can't see history," or lack access to history, favorites, or reviews.
+      2. When a customer asks about their orders, ALWAYS call 'get_user_history'.
+      3. RECOMMENDATION LOGIC: To find products a user has NOT bought:
+         - Identify all Product IDs from 'personalOrders'.
+         - Compare them against the IDs in the full product catalog.
+         - Recommend only the items that do NOT appear in the order history.
+      4. FAVORITES: Use the 'wishlist' array from the user profile to identify "Current Favorites".
+      5. TRENDING: Identify "Trending" items by checking the 'isTrending' flag in the product data.
+      6. REVIEWS: Use the 'userReviews' data to understand the user's past feedback.
+      7. If a tool result is empty, say "I couldn't find any orders in your history" or "No matching products found" rather than claiming you lack the ability to check.
+      8. When you call a tool, it returns a RAW ARRAY. You must iterate through this array to perform math (AOV, totals), filtering (stock < X, items from Y date), or searching.
+      9. For "Pandas," focus on the plushie products, not Python libraries.
+      10. You are the business intelligence engine - process data actively.
+      
+      DATA PRIVACY (STRICT):
+      - IF 'isAdmin' is TRUE: You are in the ADMIN CONSOLE. You have access to Global Revenue, All Orders, and Full Inventory.
+      - IF 'isAdmin' is FALSE: You are in the CUSTOMER CHAT. You ONLY have access to THEIR personal order history and the public catalog. NEVER reveal total store revenue or other users' data.
+      
+      FORMATTING (STRICT):
+      - Use Markdown tables for any list (Orders, Favorites, or Products).
+      - Ensure column headers like | Name | Price | Status | are clear.
+      - Use bold text for key insights, metrics, and statuses.
+      - Ensure a blank line before and after every table.
+      - Column headers must be separated by pipes | and dashes ---.
+      - NEVER clump words. Use clear spacing and newlines (\n).
+      - Always be professional, joyful, and data-accurate in your responses.
+      
+      TOOL PROTOCOL:
+      1. When asked about inventory (like plushies, dolls, toys), you MUST call 'search_products'.
+      2. When asked about sales, revenue, or customer stats, you MUST call 'get_user_history'.
+      3. If the 'isAdmin' flag is true, provide comprehensive global business analytics.`
+    }]
+  }
+});
 
 const BASE_URL = "https://artemonjoy.com";
 const LOGO_URL = `${BASE_URL}/artemon_joy_logo.png`;
@@ -79,8 +129,157 @@ const emailTemplate = (content: string) => `
 </html>
 `;
 
+// --- AI TOOLS DEFINITION ---
+const productSearchTool = {
+  name: "search_products",
+  description: "Fetches the product catalog including price, stock, trending status, descriptions, and categories. Returns name, category, price, stockCount, isTrending flag, and description.",
+  parameters: {
+    type: FunctionDeclarationSchemaType.OBJECT,
+    properties: {
+      query: { 
+        type: FunctionDeclarationSchemaType.STRING, 
+        description: "Search keyword or 'all' for full catalog." 
+      },
+      maxStock: { 
+        type: FunctionDeclarationSchemaType.NUMBER, 
+        description: "Optional: Filter products with stock less than this number." 
+      }
+    },
+    required: ["query"],
+  },
+};
+
+const userHistoryTool = {
+  name: "get_user_history",
+  description: "Fetches user profile, wishlist/favorites, full order history, and personal reviews. Use this whenever a customer asks about their past purchases, order status, account details, or favorites.",
+  parameters: { 
+    type: FunctionDeclarationSchemaType.OBJECT, 
+    properties: {} 
+  },
+};
+
+// --- 9. AI CHAT GATEKEEPER (Enhanced with both Code 1 & 2 Features) ---
+export const chatWithAI = functions.onCall({ 
+  region: REGION, 
+  memory: "512MiB", 
+  cors: true 
+}, async (request) => {
+  const { message, chatHistory, isAdmin } = request.data;
+  const uid = request.auth?.uid;
+
+  if (!uid) throw new functions.HttpsError("unauthenticated", "Please login.");
+
+  try {
+    // 1. Sanitize and Format History for Gemini 2.0
+    const formattedHistory: Content[] = (chatHistory || [])
+      .filter((msg: any) => msg.role === 'user' || msg.role === 'model')
+      .map((msg: any) => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: Array.isArray(msg.parts) ? msg.parts : [{ text: msg.text || "" }]
+      }));
+
+    const chat = generativeModel.startChat({
+      history: formattedHistory,
+      tools: [{ functionDeclarations: [productSearchTool, userHistoryTool] }],
+    });
+
+    // 2. Initial Prompt Execution
+    const result = await chat.sendMessage(message);
+    const parts = result.response.candidates?.[0]?.content?.parts || [];
+    const call = parts.find(p => p.functionCall);
+
+    if (call?.functionCall) {
+      const { name } = call.functionCall;
+      let toolResult;
+
+      // 3. Execution of Internal Search Tools
+      if (name === "search_products") {
+        // Fetch ALL products and let the AI handle filtering
+        const snap = await db.collection("products").get();
+        toolResult = snap.docs.map(d => ({ 
+          id: d.id, 
+          ...d.data(),
+          name: d.data().name,
+          category: d.data().category,
+          price: d.data().price,
+          stockCount: d.data().stockCount,
+          description: d.data().description,
+          isTrending: d.data().isTrending || false // Added for trending awareness
+        }));
+      } 
+      
+      else if (name === "get_user_history") {
+        // ADMIN DATA BRANCH
+        if (isAdmin === true) {
+          const ordersSnap = await db.collection("orders").orderBy("createdAt", "desc").limit(50).get();
+          const productsSnap = await db.collection("products").get();
+          
+          toolResult = {
+            isAdmin: true,
+            globalOrders: ordersSnap.docs.map(d => ({ 
+              id: d.id, 
+              ...d.data(), 
+              date: d.data().createdAt?.toDate()?.toISOString(),
+              total: d.data().total,
+              items: d.data().items,
+              status: d.data().status,
+              user_email: d.data().user_email,
+              user_id: d.data().user_id
+            })),
+            lowStockItems: productsSnap.docs
+              .map(d => ({ name: d.data().name, stock: d.data().stockCount }))
+              .filter(p => p.stock < 10)
+          };
+        } 
+        // CUSTOMER DATA BRANCH - With Code 1's improvements
+        else {
+          const userSnap = await db.collection("users").doc(uid).get();
+          const orderSnap = await db.collection("orders")
+            .where("user_id", "==", uid)
+            .orderBy("createdAt", "asc")
+            .get();
+          const reviewsSnap = await db.collection("reviews").where("user_id", "==", uid).get(); // Fetch user's reviews (Code 1 feature)
+          
+          const userData = userSnap.data();
+          toolResult = {
+            isAdmin: false,
+            profile: userData,
+            wishlist: userData?.wishlist || [], // Favorites/Wishlist context (Code 1 feature)
+            userReviews: reviewsSnap.docs.map(d => d.data()), // Reviews context (Code 1 feature)
+            personalOrders: orderSnap.docs.map(d => ({ 
+              id: d.id, 
+              items: d.data().items, // Crucial for filtering already-bought items (Code 1 feature)
+              date: d.data().createdAt?.toDate()?.toISOString(),
+              status: d.data().status,
+              total: d.data().total,
+              user_email: d.data().user_email
+            }))
+          };
+        }
+      }
+
+      // 4. Return results back to AI to synthesize final natural language text
+      const secondResponse = await chat.sendMessage([{
+        functionResponse: { name, response: { content: toolResult } }
+      }]);
+      
+      const finalParts = secondResponse.response.candidates?.[0]?.content?.parts || [];
+      return { 
+        text: finalParts.map(p => p.text).join("\n\n"), 
+        data: toolResult 
+      };
+    }
+
+    return { text: parts.map(p => p.text).join("\n\n") };
+
+  } catch (error: any) {
+    console.error("AI LOGIC ERROR:", error);
+    throw new functions.HttpsError("internal", error.message);
+  }
+});
+
 // --- 1. AUTHENTICATION ---
-export const sendOTP = functions.onCall({ region: "asia-south1" }, async (request) => {
+export const sendOTP = functions.onCall({ region: REGION }, async (request) => {
   const email = request.data.email;
   if (!email) throw new functions.HttpsError("invalid-argument", "Email required");
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -96,18 +295,26 @@ export const sendOTP = functions.onCall({ region: "asia-south1" }, async (reques
   return { success: true };
 });
 
-export const verifyAndRegister = functions.onCall({ region: "asia-south1" }, async (request) => {
+export const verifyAndRegister = functions.onCall({ region: REGION }, async (request) => {
   const { email, password, otp, name } = request.data;
   const otpDoc = await db.collection("otp_requests").doc(email).get();
   if (!otpDoc.exists || otpDoc.data()?.otp !== otp) throw new functions.HttpsError("permission-denied", "Incorrect code");
   const userRecord = await admin.auth().createUser({ email, password, displayName: name });
-  await db.collection("users").doc(userRecord.uid).set({ uid: userRecord.uid, email, displayName: name, role: "customer", createdAt: admin.firestore.FieldValue.serverTimestamp() });
+  await db.collection("users").doc(userRecord.uid).set({ 
+    uid: userRecord.uid, 
+    email, 
+    displayName: name, 
+    role: "customer", 
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    cart: [], // Added from Code 1
+    wishlist: [] // Added from Code 1
+  });
   return { success: true };
 });
 
 export const onUserCreated = firestore.onDocumentCreated({
-  document: "users/{userId}",
-  region: "asia-south1"
+  document: "users/{user_id}",
+  region: REGION
 }, async (event) => {
   const userData = event.data?.data();
   if (!userData) return;
@@ -121,29 +328,33 @@ export const onUserCreated = firestore.onDocumentCreated({
 
 // --- 2. ABANDONED CART ---
 export const onCartUpdated = firestore.onDocumentUpdated({
-  document: "users/{userId}",
-  region: "asia-south1"
+  document: "users/{user_id}",
+  region: REGION
 }, async (event) => {
   const afterData = event.data?.after.data();
   if (!afterData) return; 
   if (afterData.cart?.length > (event.data?.before.data()?.cart?.length || 0)) {
-    await db.collection("abandoned_carts").doc(event.params.userId).set({
-      email: afterData.email, displayName: afterData.displayName,
-      scheduledFor: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), processed: false
+    await db.collection("abandoned_carts").doc(event.params.user_id).set({
+      email: afterData.email, 
+      displayName: afterData.displayName,
+      scheduledFor: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), 
+      processed: false
     });
   }
 });
 
 export const checkAbandonedCarts = scheduler.onSchedule({ 
   schedule: "every 1 hours", 
-  region: "asia-south1"
+  region: REGION
 }, async () => {
   const snapshot = await db.collection("abandoned_carts").where("scheduledFor", "<=", admin.firestore.Timestamp.now()).where("processed", "==", false).limit(50).get();
   for (const doc of snapshot.docs) {
     const userDoc = await db.collection("users").doc(doc.id).get();
     if (userDoc.exists && userDoc.data()?.cart?.length > 0) {
       await transporter.sendMail({
-        from: '"Artemon Joy" <artemonjoy@gmail.com>', to: doc.data().email, subject: "Don't forget your toys! 🧸",
+        from: '"Artemon Joy" <artemonjoy@gmail.com>', 
+        to: doc.data().email, 
+        subject: "Don't forget your toys! 🧸",
         html: emailTemplate(`<p>Items are waiting in your cart. Use code <b>JOY5OFF</b>.</p>`)
       });
     }
@@ -151,50 +362,87 @@ export const checkAbandonedCarts = scheduler.onSchedule({
   }
 });
 
-// --- 3. BIRTHDAYS ---
+// --- 3. BIRTHDAYS (From Code 2) ---
 export const sendBirthdayWishes = scheduler.onSchedule({ 
   schedule: "0 9 * * *", 
-  region: "asia-south1"
+  region: REGION
 }, async () => {
-  const target = new Date(); target.setDate(target.getDate() + 7);
-  const snapshot = await db.collection("users").where("childBirthdayMonth", "==", target.getMonth() + 1).where("childBirthdayDay", "==", target.getDate()).get();
+  const target = new Date(); 
+  target.setDate(target.getDate() + 7);
+  const snapshot = await db.collection("users")
+    .where("childBirthdayMonth", "==", target.getMonth() + 1)
+    .where("childBirthdayDay", "==", target.getDate())
+    .get();
   for (const doc of snapshot.docs) {
     await transporter.sendMail({
-      from: '"Artemon Joy" <artemonjoy@gmail.com>', to: doc.data().email, subject: "A Birthday Gift is Waiting! 🎂",
+      from: '"Artemon Joy" <artemonjoy@gmail.com>', 
+      to: doc.data().email, 
+      subject: "A Birthday Gift is Waiting! 🎂",
       html: emailTemplate(`<p>Use code <b>BORNTOJOY10</b> for 10% OFF!</p>`)
     });
   }
 });
 
-// --- 4. ORDERS ---
+// --- 4. ORDERS & STOCK ---
 export const onOrderCreated = firestore.onDocumentCreated({
   document: "orders/{orderId}",
-  region: "asia-south1"
+  region: REGION
 }, async (event) => {
   const orderData = event.data?.data();
-  if (!orderData) return;
+  if (!orderData || !orderData.items) return;
+
+  // --- STOCK DEDUCTION LOGIC ---
+  const batch = db.batch();
+  
+  // Atomic Stock Deduction for each item
+  for (const item of orderData.items) {
+    if (item.id) {
+      const productRef = db.collection("products").doc(item.id);
+      batch.update(productRef, {
+        stockCount: admin.firestore.FieldValue.increment(-item.quantity)
+      });
+    }
+  }
+
+  await batch.commit();
+  console.log(`Inventory successfully adjusted for order ${event.params.orderId}`);
+
+  // --- EMAIL NOTIFICATION with Recommendations (Enhanced from both) ---
   const category = orderData.items[0]?.category || "Educational";
   const recs = await db.collection("products").where("category", "==", category).limit(5).get();
-  const filteredRecs = recs.docs.filter(d => !orderData.items.map((i: any) => i.id).includes(d.id)).slice(0, 2);
+  const filteredRecs = recs.docs
+    .filter(d => !orderData.items.map((i: any) => i.id).includes(d.id))
+    .slice(0, 2);
   
   await transporter.sendMail({
-    from: '"Artemon Joy" <artemonjoy@gmail.com>', to: orderData.user_email, subject: `Order Confirmed! #${event.params.orderId.slice(-6).toUpperCase()}`,
-    html: emailTemplate(`<h2>Thank you!</h2><p>Total: ₹${orderData.total.toLocaleString()}</p>
-      ${filteredRecs.length ? `<h3>You Might Also Love ✨</h3><ul>${filteredRecs.map(d => `<li>${d.data().name}</li>`).join("")}</ul>` : ""}`)
+    from: '"Artemon Joy" <artemonjoy@gmail.com>', 
+    to: orderData.user_email, 
+    subject: `Order Confirmed! #${event.params.orderId.slice(-6).toUpperCase()}`,
+    html: emailTemplate(`
+      <h2>Thank you for your order!</h2>
+      <p>Total: ₹${orderData.total.toLocaleString()}</p>
+      <p>Your order items have been processed and stock has been updated.</p>
+      ${filteredRecs.length ? `
+        <h3>You Might Also Love ✨</h3>
+        <ul>${filteredRecs.map(d => `<li>${d.data().name}</li>`).join("")}</ul>
+      ` : ""}
+    `)
   });
 });
 
 // --- 5. INVENTORY & ANALYTICS ---
 export const onProductStockUpdated = firestore.onDocumentUpdated({
   document: "products/{productId}",
-  region: "asia-south1"
+  region: REGION
 }, async (event) => {
   const after = event.data?.after.data();
   const before = event.data?.before.data();
   if (!after || !before) return; 
   if (after.stockCount < 5 && before.stockCount >= 5) {
     await transporter.sendMail({
-      from: '"Inventory Alert"', to: "artemonjoy@gmail.com", subject: `🚨 Low Stock: ${after.name}`,
+      from: '"Inventory Alert" <artemonjoy@gmail.com>', 
+      to: "artemonjoy@gmail.com", 
+      subject: `🚨 Low Stock: ${after.name}`,
       html: emailTemplate(`<p><b>${after.name}</b> is critically low: ${after.stockCount} left.</p>`)
     });
   }
@@ -202,19 +450,27 @@ export const onProductStockUpdated = firestore.onDocumentUpdated({
 
 export const dailySalesSummary = scheduler.onSchedule({ 
   schedule: "0 0 * * *", 
-  region: "asia-south1"
+  region: REGION
 }, async () => {
   const yesterday = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 86400000));
   const snapshot = await db.collection("orders").where("createdAt", ">=", yesterday).get();
-  let total = 0; snapshot.forEach(d => total += d.data().total);
+  let total = 0; 
+  snapshot.forEach(d => total += d.data().total);
   await transporter.sendMail({
-    from: '"Artemon Joy IQ"', to: "artemonjoy@gmail.com", subject: "📊 Daily Sales Report",
-    html: emailTemplate(`<h2>Daily Summary</h2><p>Total Revenue: ₹${total.toLocaleString()}</p><p>Orders: ${snapshot.size}</p>`)
+    from: '"Artemon Joy IQ" <artemonjoy@gmail.com>', 
+    to: "artemonjoy@gmail.com", 
+    subject: "📊 Daily Sales Report",
+    html: emailTemplate(`
+      <h2>Daily Summary</h2>
+      <p>Total Revenue: ₹${total.toLocaleString()}</p>
+      <p>Orders: ${snapshot.size}</p>
+      <p>Stock automatically deducted for all orders today.</p>
+    `)
   });
 });
 
 // --- 6. IMAGE OPTIMIZATION (SHARP) ---
-export const onImageUpload = storage.onObjectFinalized({ region: "asia-south1" }, async (event) => {
+export const onImageUpload = storage.onObjectFinalized({ region: REGION }, async (event) => {
   const filePath = event.data.name;
   if (!filePath || filePath.endsWith(".webp") || filePath.startsWith("optimized/")) return;
   const fileName = path.basename(filePath);
@@ -223,41 +479,56 @@ export const onImageUpload = storage.onObjectFinalized({ region: "asia-south1" }
   const webpPath = path.join(os.tmpdir(), `${path.parse(fileName).name}.webp`);
 
   await bucket.file(filePath).download({ destination: tempPath });
-  await sharp(tempPath).resize(800, 800, { fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toFile(webpPath);
-  await bucket.upload(webpPath, { destination: `optimized/${path.basename(webpPath)}`, metadata: { contentType: "image/webp" } });
+  await sharp(tempPath)
+    .resize(800, 800, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toFile(webpPath);
+  await bucket.upload(webpPath, { 
+    destination: `optimized/${path.basename(webpPath)}`, 
+    metadata: { contentType: "image/webp" } 
+  });
   
   await Promise.all([fs.promises.unlink(tempPath), fs.promises.unlink(webpPath)]); 
 });
 
-// --- 7. NEWSLETTER ---
-export const pushNewsletter = functions.onCall({ region: "asia-south1" }, async (req) => {
+// --- 7. NEWSLETTER (From Code 2) ---
+export const pushNewsletter = functions.onCall({ region: REGION }, async (req) => {
   const snapshot = await db.collection("subscribers").get();
   const emails = snapshot.docs.map(d => d.data().email);
   if (emails.length) {
-    await transporter.sendMail({ from: '"Artemon Joy"', bcc: emails, subject: req.data.subject, html: emailTemplate(req.data.content) });
+    await transporter.sendMail({ 
+      from: '"Artemon Joy" <artemonjoy@gmail.com>', 
+      bcc: emails, 
+      subject: req.data.subject, 
+      html: emailTemplate(req.data.content) 
+    });
   }
   return { success: true };
 });
 
 export const onSubscriberCreated = firestore.onDocumentCreated({
   document: "subscribers/{subId}",
-  region: "asia-south1"
+  region: REGION
 }, async (event) => {
   const data = event.data?.data();
   if (!data) return;
-  await transporter.sendMail({ from: '"Artemon Joy"', to: data.email, subject: "Welcome! 🚀", html: emailTemplate(`<p>Thanks for subscribing 🎉</p>`) });
+  await transporter.sendMail({ 
+    from: '"Artemon Joy" <artemonjoy@gmail.com>', 
+    to: data.email, 
+    subject: "Welcome to our Newsletter! 🚀", 
+    html: emailTemplate(`<p>Thanks for subscribing to Artemon Joy! 🎉</p>`) 
+  });
 });
 
-// --- 8. REVIEW MODERATION (SELF-LEARNING) ---
+// --- 8. REVIEW MODERATION (Enhanced from Code 2) ---
 export const onReviewCreated = firestore.onDocumentCreated({
   document: "reviews/{reviewId}",
-  region: "asia-south1"
+  region: REGION
 }, async (event) => {
   const reviewData = event.data?.data();
   if (!reviewData || !reviewData.comment) return;
 
   try {
-    // 1. Fetch current dynamic settings
     const settingsRef = db.collection("settings").doc("moderation");
     const settingsDoc = await settingsRef.get();
     let restrictedKeywords: string[] = ["hate", "stupid", "idiot", "scam"]; 
@@ -271,19 +542,17 @@ export const onReviewCreated = firestore.onDocumentCreated({
       type: "PLAIN_TEXT" as const,
     };
 
-    // 2. Perform AI Sentiment and Entity Analysis
     const [sentimentResult] = await languageClient.analyzeSentiment({ document });
     const [entityResult] = await languageClient.analyzeEntities({ document });
     
     const sentiment = sentimentResult.documentSentiment;
     const entities = entityResult.entities || [];
 
-    // 3. Word-Based Filtering
     const hasRestrictedContent = restrictedKeywords.some(word => 
       reviewData.comment.toLowerCase().includes(word.toLowerCase())
     );
 
-    // 4. SELF-LEARNING LOGIC
+    // AI Self-learning: Extract toxic patterns
     if (sentiment?.score && sentiment.score < -0.8) {
       const toxicRoots = entities
         .filter(e => e.type !== 'PERSON' && e.salience && e.salience > 0.1)
@@ -297,24 +566,20 @@ export const onReviewCreated = firestore.onDocumentCreated({
       }
     }
 
-    // 5. Flagging Logic (FIXED MAPPING)
     if ((sentiment?.score && sentiment.score < -0.6) || hasRestrictedContent) {
-      // Determine the specific reason
       const reason = hasRestrictedContent ? "Restricted Language" : "AI Self-Learned Toxic Pattern";
       
-      // Update the document with explicit reason
       await event.data?.ref.update({
         status: "flagged",
         moderationData: {
           sentimentScore: sentiment?.score || 0,
           flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
-          flaggedReason: reason // Re-confirmed field name
+          flaggedReason: reason
         }
       });
 
-      // Admin Notification Email
       await transporter.sendMail({
-        from: '"AI Moderation Bot"',
+        from: '"AI Moderation Bot" <artemonjoy@gmail.com>',
         to: "artemonjoy@gmail.com",
         subject: "🤖 Review Flagged & AI Updated",
         html: emailTemplate(`
@@ -322,7 +587,7 @@ export const onReviewCreated = firestore.onDocumentCreated({
           <p><b>User:</b> ${reviewData.user_name}</p>
           <p><b>Comment:</b> "${reviewData.comment}"</p>
           <p><b>Flag Reason:</b> ${reason}</p>
-          <p><b>Sentiment:</b> ${sentiment?.score}</p>
+          <p><b>Sentiment Score:</b> ${sentiment?.score}</p>
         `)
       });
     } else {

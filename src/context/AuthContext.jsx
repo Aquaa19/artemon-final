@@ -1,10 +1,10 @@
-// Filename: src/context/AuthContext.jsx
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
   signOut, 
-  signInWithPopup 
+  signInWithPopup,
+  getIdTokenResult
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -15,37 +15,49 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false); // Explicit state to prevent flickering
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true);
       try {
         if (firebaseUser) {
+          // 1. Fetch Token Claims (Primary Security for AI Console)
+          const tokenResult = await getIdTokenResult(firebaseUser, true);
+          const hasAdminClaim = !!tokenResult.claims.admin;
+
+          // 2. Fetch Firestore Profile
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
-
-          if (!userDoc.exists()) {
-            console.warn("Firestore profile pending...");
-            return; 
-          }
-
-          const idTokenResult = await firebaseUser.getIdTokenResult();
-          const userData = userDoc.data();
           
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName,
-            // UPDATED: Ensure photoURL is pulled from Auth if missing in Firestore
-            photoURL: firebaseUser.photoURL || userData.photoURL || null,
-            role: idTokenResult.claims.role || userData.role || 'customer',
-            ...userData
-          });
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const roleFromDB = userData.role === 'admin';
+            
+            // Sync Admin Status: Check both Claims and DB for redundancy
+            setIsAdmin(hasAdminClaim || roleFromDB);
+
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL || userData.photoURL || null,
+              ...userData,
+              role: hasAdminClaim ? 'admin' : (userData.role || 'customer')
+            });
+          } else {
+            // New user scenario (usually handled by verifyAndRegister or Google login)
+            setIsAdmin(false);
+            setUser(null); 
+          }
         } else {
           setUser(null);
+          setIsAdmin(false);
         }
       } catch (error) {
-        console.error("Auth Listener Error:", error);
+        console.error("Critical Auth Sync Error:", error);
         setUser(null);
+        setIsAdmin(false);
       } finally {
         setLoading(false);
       }
@@ -59,13 +71,9 @@ export function AuthProvider({ children }) {
     try {
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, profileData);
-
-      setUser(prev => ({
-        ...prev,
-        ...profileData
-      }));
+      setUser(prev => ({ ...prev, ...profileData }));
     } catch (error) {
-      console.error("Failed to update profile:", error);
+      console.error("Profile update failed:", error);
       throw error;
     }
   };
@@ -74,7 +82,6 @@ export function AuthProvider({ children }) {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
-
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       const userDoc = await getDoc(userDocRef);
 
@@ -83,7 +90,7 @@ export function AuthProvider({ children }) {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL, // Saved for new users
+          photoURL: firebaseUser.photoURL,
           role: 'customer',
           createdAt: serverTimestamp(),
           cart: [],
@@ -91,24 +98,16 @@ export function AuthProvider({ children }) {
         };
         await setDoc(userDocRef, initialData);
         setUser(initialData);
-      } else {
-        // UPDATED: Sync photoURL for returning users if it's missing in Firestore
-        const existingData = userDoc.data();
-        if (!existingData.photoURL && firebaseUser.photoURL) {
-          await updateDoc(userDocRef, { photoURL: firebaseUser.photoURL });
-        }
+        setIsAdmin(false);
       }
       return firebaseUser;
     } catch (error) {
-      console.error("Google Sign-In Error:", error);
+      console.error("Google login failed:", error);
       throw error;
     }
   };
 
-  const login = async (email, password) => {
-    return await signInWithEmailAndPassword(auth, email, password);
-  };
-
+  const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
   const logout = () => signOut(auth);
 
   const requestOTP = async (email) => {
@@ -119,27 +118,31 @@ export function AuthProvider({ children }) {
   const verifyAndRegister = async (email, password, otp, name) => {
     const verifyFunction = httpsCallable(functions, 'verifyAndRegister');
     const result = await verifyFunction({ email, password, otp, name });
-    if (result.data.success) {
-      return await login(email, password);
-    }
+    if (result.data.success) return await login(email, password);
     throw new Error("Registration failed.");
   };
 
-  const value = { 
+  // Memoize value to prevent unnecessary re-renders of the whole app tree
+  const authValue = useMemo(() => ({ 
     user, 
     loading, 
+    isAdmin, // Now a stable state, not a calculated field
     login, 
     loginWithGoogle, 
     logout, 
     requestOTP, 
     verifyAndRegister,
-    updateUserAddress,
-    isAdmin: user?.role === 'admin' 
-  };
+    updateUserAddress
+  }), [user, loading, isAdmin]);
 
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
+    <AuthContext.Provider value={authValue}>
+      {/* Ensure children don't render until auth state is fully resolved */}
+      {!loading ? children : (
+        <div className="fixed inset-0 flex items-center justify-center bg-white z-[9999]">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 }

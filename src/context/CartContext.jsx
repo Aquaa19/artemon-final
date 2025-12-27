@@ -1,4 +1,3 @@
-// Filename: src/context/CartContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
@@ -26,8 +25,6 @@ export function CartProvider({ children }) {
         const storedCart = localStorage.getItem('cart');
         const guestCart = storedCart ? JSON.parse(storedCart) : [];
 
-        // Logic: Sync guest cart to Firestore on login
-        // This ensures guest items trigger the Abandoned Cart Cloud Function
         if (guestCart.length > 0) {
           const mergedCart = [...(user.cart || [])];
           
@@ -43,7 +40,7 @@ export function CartProvider({ children }) {
           const userRef = doc(db, 'users', user.uid);
           await updateDoc(userRef, { cart: mergedCart });
           setCartItems(mergedCart);
-          localStorage.removeItem('cart'); // Clear local once synced
+          localStorage.removeItem('cart');
         } else {
           setCartItems(user.cart || []);
         }
@@ -67,7 +64,26 @@ export function CartProvider({ children }) {
 
   const clearBuyNow = () => setBuyNowItem(null);
 
-  // --- Cart Operations (Synced to Firestore for Cloud Triggers) ---
+  // --- NEW: Missing updateQuantity Logic ---
+  const updateQuantity = async (productId, newQuantity) => {
+    if (newQuantity < 1) return; // Guard against zero or negative quantity
+
+    const updatedCart = cartItems.map(item =>
+      item.id === productId ? { ...item, quantity: newQuantity } : item
+    );
+
+    setCartItems(updatedCart);
+
+    if (user) {
+      // This sync ensures the Abandoned Cart Cloud Function sees the update
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, { cart: updatedCart });
+    } else {
+      localStorage.setItem('cart', JSON.stringify(updatedCart));
+    }
+  };
+
+  // --- Cart Operations ---
   const addToCart = async (product, quantity = 1) => {
     const newItem = { ...product, quantity };
     let updatedCart;
@@ -85,7 +101,6 @@ export function CartProvider({ children }) {
 
     if (user) {
       const userRef = doc(db, 'users', user.uid);
-      // Triggering onCartUpdated in index.ts
       await updateDoc(userRef, { cart: updatedCart });
     } else {
       localStorage.setItem('cart', JSON.stringify(updatedCart));
@@ -130,7 +145,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider value={{ 
-      cartItems, addToCart, removeFromCart, getCartCount, getCartTotal, clearCart, cartLoading,
+      cartItems, addToCart, removeFromCart, updateQuantity, getCartCount, getCartTotal, clearCart, cartLoading,
       wishlist, toggleWishlist, isInWishlist,
       buyNowItem, handleBuyNow, clearBuyNow
     }}>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingCart, LogOut, Heart, Search } from 'lucide-react';
+import { Menu, X, ShoppingCart, LogOut, Heart, Search, Sparkles } from 'lucide-react'; // Changed Star to Sparkles
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
@@ -154,6 +154,18 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3 shrink-0">
+            {/* AI Assistant Trigger (Desktop) */}
+            <Link
+              to={ROUTE_MAP.AI_CHAT || '/ai-assistant'}
+              className={`p-2 rounded-full transition-all relative group tour-target-ai ${iconColor} hover:bg-black/5`}
+            >
+              {/* Swapped Star for Sparkles for a more AI-centric look */}
+              <Sparkles className="h-5 w-5 fill-secondary text-secondary animate-pulse" />
+              <span className="absolute -top-1 -right-2 px-1 bg-secondary text-[8px] font-black text-white rounded-md uppercase tracking-tighter">
+                New
+              </span>
+            </Link>
+
             <Link
               to={ROUTE_MAP.FAVORITES}
               className={`p-2 rounded-full transition-all relative group tour-target-favorites ${iconColor} hover:bg-black/5`}
@@ -237,6 +249,11 @@ export default function Navbar() {
           </div>
 
           <div className="md:hidden flex items-center gap-3">
+            {/* AI Assistant Trigger (Mobile) */}
+            <Link to={ROUTE_MAP.AI_CHAT || '/ai-assistant'} className={`relative p-1 ${iconColor}`}>
+              <Sparkles className="h-6 w-6 fill-secondary text-secondary" />
+            </Link>
+
             {!isSearchPage && (
               <Link to={ROUTE_MAP.SEARCH} className={`p-1 rounded-full tour-target-search ${iconColor}`}>
                 <Search className="h-6 w-6" />
@@ -291,6 +308,14 @@ export default function Navbar() {
         }`}
       >
         <div className="px-4 py-4 space-y-2">
+          {/* AI Assistant in Mobile Menu */}
+          <Link 
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/10 text-secondary font-bold" 
+            to={ROUTE_MAP.AI_CHAT || '/ai-assistant'}
+          >
+            <Sparkles className="h-5 w-5 fill-secondary" />
+            AI Assistant
+          </Link>
           <Link className="block px-3 py-2 rounded-lg text-gray-900" to={ROUTE_MAP.HOME}>
             Home
           </Link>

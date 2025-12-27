@@ -21,7 +21,6 @@ const REVIEWS_COLLECTION = 'reviews';
 const USERS_COLLECTION = 'users';
 const ORDERS_COLLECTION = 'orders';
 const SUBSCRIBERS_COLLECTION = 'subscribers';
-// NEW: Constant for Settings
 const SETTINGS_COLLECTION = 'settings';
 
 const optimizeImageUrl = (url) => {
@@ -30,6 +29,77 @@ const optimizeImageUrl = (url) => {
 };
 
 export const firestoreService = {
+  // --- AI & SEARCH TOOLS ---
+
+  /**
+   * AI-Specific product search.
+   * Optimized for Gemini to find products based on natural language queries.
+   */
+  searchProductsForAI: async (searchQuery) => {
+    try {
+      const q = collection(db, PRODUCTS_COLLECTION);
+      const snapshot = await getDocs(q);
+      const term = searchQuery.toLowerCase();
+
+      return snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(p => {
+          // Robust matching across multiple fields to prevent "category miss"
+          const nameMatch = p.name?.toLowerCase().includes(term);
+          const categoryMatch = p.category?.toLowerCase().includes(term);
+          const descriptionMatch = p.description?.toLowerCase().includes(term);
+          
+          return nameMatch || categoryMatch || descriptionMatch;
+        })
+        .slice(0, 5); // Limit to top 5 for AI context efficiency
+    } catch (error) {
+      console.error("AI Search Error:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Fetches full context for the AI Assistant.
+   * @param {string} uid - The user ID.
+   * @param {boolean} isAdmin - Whether to fetch global admin stats.
+   */
+  getAIContext: async (uid, isAdmin = false) => {
+    try {
+      const context = {
+        userProfile: null,
+        recentOrders: [],
+        inventorySummary: []
+      };
+
+      const userRef = doc(db, USERS_COLLECTION, uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) context.userProfile = userSnap.data();
+
+      if (isAdmin) {
+        const ordersQ = query(collection(db, ORDERS_COLLECTION), orderBy('createdAt', 'desc'), limit(10));
+        const ordersSnap = await getDocs(ordersQ);
+        context.recentOrders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        const productsSnap = await getDocs(query(collection(db, PRODUCTS_COLLECTION), limit(10)));
+        context.inventorySummary = productsSnap.docs.map(d => ({ name: d.data().name, stock: d.data().stockCount }));
+      } else {
+        const ordersQ = query(
+          collection(db, ORDERS_COLLECTION), 
+          where('userId', '==', uid), 
+          orderBy('createdAt', 'desc'), 
+          limit(5)
+        );
+        const ordersSnap = await getDocs(ordersQ);
+        context.recentOrders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
+
+      return context;
+    } catch (error) {
+      console.error("AI Context Error:", error);
+      return null;
+    }
+  },
+
   // --- NEWSLETTER OPERATIONS ---
   getAllSubscribers: async () => {
     try {
@@ -274,7 +344,7 @@ export const firestoreService = {
     return await deleteDoc(docRef);
   },
 
-  // --- NEW: MODERATION SETTINGS OPERATIONS ---
+  // --- MODERATION SETTINGS OPERATIONS ---
   getModerationSettings: async () => {
     try {
       const docRef = doc(db, SETTINGS_COLLECTION, 'moderation');

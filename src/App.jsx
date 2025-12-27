@@ -1,5 +1,5 @@
 // Filename: src/App.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -24,6 +24,10 @@ import Profile from './pages/auth/Profile';
 import Favorites from './pages/shop/Favorites';
 import SearchPage from './pages/shop/SearchPage';
 
+// AI Pages (New)
+const AIChat = lazy(() => import('./pages/shop/AIChat'));
+const AIConsole = lazy(() => import('./pages/admin/AIConsole'));
+
 // Admin Pages
 import Dashboard from './pages/admin/Dashboard';
 import Inventory from './pages/admin/Inventory';
@@ -31,7 +35,6 @@ import Orders from './pages/admin/Orders';
 import Users from './pages/admin/Users';
 import Reviews from './pages/admin/Reviews';
 import Subscribers from './pages/admin/Subscribers';
-// NEW: Import the Moderation Settings page
 import ModerationSettings from './pages/admin/ModerationSettings';
 
 // Support Pages
@@ -60,7 +63,10 @@ export const ROUTE_MAP = {
   CHECKOUT: '/Q0hLSDI0',
   SUCCESS: '/U0NTUzI0',
   TRACK: '/VFJLSTIONjQ',
-  ADMIN: '/QURNSTIONjQ'
+  ADMIN: '/QURNSTIONjQ',
+  // NEW: Obfuscated AI Routes
+  AI_CHAT: '/QUlBU1NU',
+  AI_CONSOLE: '/QUlDTlNM'
 };
 
 // --- ROUTE GUARDS ---
@@ -100,45 +106,53 @@ function AnimatedRoutes({ setPageLoading }) {
   
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        {/* Public Layout */}
-        <Route path="/" element={<PublicLayout />}>
-          <Route index element={<Home />} />
-          <Route path={ROUTE_MAP.SHOP.substring(1)} element={<Shop />} />
-          <Route path={ROUTE_MAP.TRENDING.substring(1)} element={<Shop trendingOnly={true} />} />
-          <Route path={ROUTE_MAP.NEW_ARRIVALS.substring(1)} element={<Shop newArrivalsOnly={true} />} />
-          <Route path="product/:slug/:id" element={<ProductDetail />} />
-          <Route path="product/:slug/:id/write-review" element={<WriteReview />} />
-          <Route path={ROUTE_MAP.CART.substring(1)} element={<Cart />} />
-          <Route path={ROUTE_MAP.FAVORITES.substring(1)} element={<Favorites />} />
-          <Route path={ROUTE_MAP.SEARCH.substring(1)} element={<SearchPage />} />
-          <Route path={ROUTE_MAP.LOGIN.substring(1)} element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
-          <Route path={ROUTE_MAP.REGISTER.substring(1)} element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
-          <Route path={ROUTE_MAP.PROFILE.substring(1)} element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path={ROUTE_MAP.CHECKOUT.substring(1)} element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-          <Route path={ROUTE_MAP.SUCCESS.substring(1)} element={<OrderSuccess />} />
-          <Route path="track-order" element={<TrackOrder />} />
-          <Route path="shipping" element={<ShippingInfo />} />
-          <Route path="returns" element={<Returns />} />
-          <Route path="faq" element={<FAQ />} />
-          <Route path="privacy" element={<Privacy />} />
-          <Route path="terms" element={<Terms />} />
-        </Route>
+      <Suspense fallback={<LoadingScreen2 />}>
+        <Routes location={location} key={location.pathname}>
+          {/* Public Layout */}
+          <Route path="/" element={<PublicLayout />}>
+            <Route index element={<Home />} />
+            <Route path={ROUTE_MAP.SHOP.substring(1)} element={<Shop />} />
+            <Route path={ROUTE_MAP.TRENDING.substring(1)} element={<Shop trendingOnly={true} />} />
+            <Route path={ROUTE_MAP.NEW_ARRIVALS.substring(1)} element={<Shop newArrivalsOnly={true} />} />
+            <Route path="product/:slug/:id" element={<ProductDetail />} />
+            <Route path="product/:slug/:id/write-review" element={<WriteReview />} />
+            <Route path={ROUTE_MAP.CART.substring(1)} element={<Cart />} />
+            <Route path={ROUTE_MAP.FAVORITES.substring(1)} element={<Favorites />} />
+            <Route path={ROUTE_MAP.SEARCH.substring(1)} element={<SearchPage />} />
+            <Route path={ROUTE_MAP.LOGIN.substring(1)} element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+            <Route path={ROUTE_MAP.REGISTER.substring(1)} element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+            <Route path={ROUTE_MAP.PROFILE.substring(1)} element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path={ROUTE_MAP.CHECKOUT.substring(1)} element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+            <Route path={ROUTE_MAP.SUCCESS.substring(1)} element={<OrderSuccess />} />
+            
+            {/* NEW: Personalized Customer AI Chat */}
+            <Route path={ROUTE_MAP.AI_CHAT.substring(1)} element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
 
-        {/* Admin Routes */}
-        <Route path={ROUTE_MAP.ADMIN.substring(1)} element={<AdminRoute><AdminLayout /></AdminRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="users" element={<Users />} />
-          <Route path="reviews" element={<Reviews />} />
-          <Route path="subscribers" element={<Subscribers />} />
-          {/* NEW: Admin Moderation Settings Route */}
-          <Route path="moderation-settings" element={<ModerationSettings />} />
-        </Route>
+            <Route path="track-order" element={<TrackOrder />} />
+            <Route path="shipping" element={<ShippingInfo />} />
+            <Route path="returns" element={<Returns />} />
+            <Route path="faq" element={<FAQ />} />
+            <Route path="privacy" element={<Privacy />} />
+            <Route path="terms" element={<Terms />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Admin Routes */}
+          <Route path={ROUTE_MAP.ADMIN.substring(1)} element={<AdminRoute><AdminLayout /></AdminRoute>}>
+            <Route index element={<Dashboard />} />
+            {/* NEW: Admin AI Analytics Console */}
+            <Route path="ai-console" element={<AIConsole />} />
+            
+            <Route path="inventory" element={<Inventory />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="users" element={<Users />} />
+            <Route path="reviews" element={<Reviews />} />
+            <Route path="subscribers" element={<Subscribers />} />
+            <Route path="moderation-settings" element={<ModerationSettings />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </AnimatePresence>
   );
 }

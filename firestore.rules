@@ -1,12 +1,53 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // PRODUCTS: Public read, Admin write
     match /products/{productId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
-    match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+
+    // REVIEWS: Public read (approved only), Users can create, Admin full control
+    match /reviews/{reviewId} {
+      allow read: if resource.data.status == 'approved' || isAdmin();
+      allow create: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    // ORDERS: Users see own, Admins see all
+    match /orders/{orderId} {
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null;
+      allow update: if isAdmin();
+    }
+
+    // USERS: Users see/edit own, Admins see all
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // SUBSCRIBERS: Admin only
+    match /subscribers/{subId} {
+      allow read, write: if isAdmin();
+      allow create: if true; // Allow public newsletter signup
+    }
+
+    // SETTINGS: Admin only (Required for AI Moderation settings)
+    match /settings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // AI LOGS/OTP: Internal use (Strictly Admin or specific UID)
+    match /otp_requests/{email} {
+      allow read, write: if false; // Only accessible via Cloud Functions (Admin SDK)
     }
   }
 }
