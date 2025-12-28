@@ -31,27 +31,36 @@ const generativeModel = vertexAI.getGenerativeModel({
       
       CRITICAL LOGIC DIRECTIVES:
       1. NEVER say "I cannot filter," "I cannot calculate," "I cannot check," "I don't have access," "I can't see history," or lack access to history, favorites, or reviews.
-      2. When a customer asks about their orders, ALWAYS call 'get_user_history'.
-      3. RECOMMENDATION LOGIC: To find products a user has NOT bought:
+      2. When an Admin asks about reviews, use the 'globalReviews' array provided by the tool.
+      3. Understand that "rejected" reviews in the dashboard correspond to reviews with the status "flagged".
+      4. When a customer asks about their orders, ALWAYS call 'get_user_history'.
+      5. RECOMMENDATION LOGIC: To find products a user has NOT bought:
          - Identify all Product IDs from 'personalOrders'.
          - Compare them against the IDs in the full product catalog.
          - Recommend only the items that do NOT appear in the order history.
-      4. FAVORITES: Use the 'wishlist' array from the user profile to identify "Current Favorites".
-      5. TRENDING: Identify "Trending" items by checking the 'isTrending' flag in the product data.
-      6. REVIEWS: Use the 'userReviews' data to understand the user's past feedback.
-      7. If a tool result is empty, say "I couldn't find any orders in your history" or "No matching products found" rather than claiming you lack the ability to check.
-      8. When you call a tool, it returns a RAW ARRAY. You must iterate through this array to perform math (AOV, totals), filtering (stock < X, items from Y date), or searching.
-      9. For "Pandas," focus on the plushie products, not Python libraries.
-      10. You are the business intelligence engine - process data actively.
+      6. FAVORITES: Use the 'wishlist' array from the user profile to identify "Current Favorites".
+      7. TRENDING: Identify "Trending" items by checking the 'isTrending' flag in the product data.
+      8. REVIEWS: Use the 'userReviews' data to understand the user's past feedback.
+      9. If a tool result is empty, say "I couldn't find any orders in your history" or "No matching products found" rather than claiming you lack the ability to check.
+      10. When you call a tool, it returns a RAW ARRAY. You must iterate through this array to perform math (AOV, totals), filtering (stock < X, items from Y date), or searching.
+      11. For "Pandas," focus on the plushie products, not Python libraries.
+      12. You are the business intelligence engine - process data actively.
+      
+      ACTION CHIP PROTOCOL:
+      You help the UI provide shortcuts. In your responses, prioritize topics that lead to these paths:
+      - Orders: '/orders' (type: 'order')
+      - Favorites: '/wishlist' (type: 'wishlist')
+      - New/Trending: '/trending' (type: 'trending')
+      - Admin Reviews: '/admin/reviews' (type: 'default')
       
       DATA PRIVACY (STRICT):
-      - IF 'isAdmin' is TRUE: You are in the ADMIN CONSOLE. You have access to Global Revenue, All Orders, and Full Inventory.
-      - IF 'isAdmin' is FALSE: You are in the CUSTOMER CHAT. You ONLY have access to THEIR personal order history and the public catalog. NEVER reveal total store revenue or other users' data.
+      - IF 'isAdmin' is TRUE: You have access to Global Revenue, All Orders, Full Inventory, and All User Reviews.
+      - IF 'isAdmin' is FALSE: You ONLY have access to the specific user's personal data. NEVER reveal total store revenue or other users' data.
       
       FORMATTING (STRICT):
-      - Use Markdown tables for any list (Orders, Favorites, or Products).
-      - Ensure column headers like | Name | Price | Status | are clear.
-      - Use bold text for key insights, metrics, and statuses.
+      - Use Markdown tables for any list (Orders, Reviews, Products).
+      - Ensure column headers like | User | Comment | Status | are clear.
+      - Use bold text for key insights, metrics, and statuses like **flagged** or **approved**.
       - Ensure a blank line before and after every table.
       - Column headers must be separated by pipes | and dashes ---.
       - NEVER clump words. Use clear spacing and newlines (\n).
@@ -60,7 +69,7 @@ const generativeModel = vertexAI.getGenerativeModel({
       TOOL PROTOCOL:
       1. When asked about inventory (like plushies, dolls, toys), you MUST call 'search_products'.
       2. When asked about sales, revenue, or customer stats, you MUST call 'get_user_history'.
-      3. If the 'isAdmin' flag is true, provide comprehensive global business analytics.`
+      3. If the 'isAdmin' flag is true, provide comprehensive global business analytics including review analysis.`
     }]
   }
 });
@@ -151,14 +160,14 @@ const productSearchTool = {
 
 const userHistoryTool = {
   name: "get_user_history",
-  description: "Fetches user profile, wishlist/favorites, full order history, and personal reviews. Use this whenever a customer asks about their past purchases, order status, account details, or favorites.",
+  description: "Fetches user profile, wishlist/favorites, full order history, and personal reviews. For Admins: global orders and all reviews. For Customers: personal profile, wishlist, and orders.",
   parameters: { 
     type: FunctionDeclarationSchemaType.OBJECT, 
     properties: {} 
   },
 };
 
-// --- 9. AI CHAT GATEKEEPER (Enhanced with both Code 1 & 2 Features) ---
+// --- AI CHAT GATEKEEPER (Enhanced with smart filtering, admin review access, and action chips) ---
 export const chatWithAI = functions.onCall({ 
   region: REGION, 
   memory: "512MiB", 
@@ -194,7 +203,6 @@ export const chatWithAI = functions.onCall({
 
       // 3. Execution of Internal Search Tools
       if (name === "search_products") {
-        // Fetch ALL products and let the AI handle filtering
         const snap = await db.collection("products").get();
         toolResult = snap.docs.map(d => ({ 
           id: d.id, 
@@ -204,18 +212,20 @@ export const chatWithAI = functions.onCall({
           price: d.data().price,
           stockCount: d.data().stockCount,
           description: d.data().description,
-          isTrending: d.data().isTrending || false // Added for trending awareness
+          isTrending: d.data().isTrending || false
         }));
       } 
       
       else if (name === "get_user_history") {
-        // ADMIN DATA BRANCH
         if (isAdmin === true) {
           const ordersSnap = await db.collection("orders").orderBy("createdAt", "desc").limit(50).get();
           const productsSnap = await db.collection("products").get();
+          // Fetch all reviews for Admin analysis
+          const reviewsSnap = await db.collection("reviews").orderBy("createdAt", "desc").limit(100).get();
           
           toolResult = {
             isAdmin: true,
+            totalRevenue: ordersSnap.docs.reduce((acc, d) => acc + (d.data().total || 0), 0), // From Code 1
             globalOrders: ordersSnap.docs.map(d => ({ 
               id: d.id, 
               ...d.data(), 
@@ -226,29 +236,34 @@ export const chatWithAI = functions.onCall({
               user_email: d.data().user_email,
               user_id: d.data().user_id
             })),
+            globalReviews: reviewsSnap.docs.map(d => ({
+              id: d.id, 
+              ...d.data(), 
+              date: d.data().createdAt?.toDate()?.toISOString()
+            })),
             lowStockItems: productsSnap.docs
               .map(d => ({ name: d.data().name, stock: d.data().stockCount }))
               .filter(p => p.stock < 10)
           };
         } 
-        // CUSTOMER DATA BRANCH - With Code 1's improvements
+        // CUSTOMER DATA BRANCH
         else {
           const userSnap = await db.collection("users").doc(uid).get();
           const orderSnap = await db.collection("orders")
             .where("user_id", "==", uid)
             .orderBy("createdAt", "asc")
             .get();
-          const reviewsSnap = await db.collection("reviews").where("user_id", "==", uid).get(); // Fetch user's reviews (Code 1 feature)
+          const reviewsSnap = await db.collection("reviews").where("user_id", "==", uid).get();
           
           const userData = userSnap.data();
           toolResult = {
             isAdmin: false,
             profile: userData,
-            wishlist: userData?.wishlist || [], // Favorites/Wishlist context (Code 1 feature)
-            userReviews: reviewsSnap.docs.map(d => d.data()), // Reviews context (Code 1 feature)
+            wishlist: userData?.wishlist || [],
+            userReviews: reviewsSnap.docs.map(d => d.data()),
             personalOrders: orderSnap.docs.map(d => ({ 
               id: d.id, 
-              items: d.data().items, // Crucial for filtering already-bought items (Code 1 feature)
+              items: d.data().items,
               date: d.data().createdAt?.toDate()?.toISOString(),
               status: d.data().status,
               total: d.data().total,
@@ -264,9 +279,38 @@ export const chatWithAI = functions.onCall({
       }]);
       
       const finalParts = secondResponse.response.candidates?.[0]?.content?.parts || [];
+      const finalBotText = finalParts.map(p => p.text).join("\n\n");
+
+      // --- SMART FILTERING FOR DATA CARDS & ACTION CHIP GENERATION ---
+      let filteredData: any = toolResult;
+      const suggestedActions: any[] = [];
+
+      // Generate suggested actions based on context (from Code 1)
+      if (name === "get_user_history") {
+        if (isAdmin) {
+          suggestedActions.push({ label: "Moderation Queue", path: "/admin/reviews", type: "default" });
+        } else {
+          suggestedActions.push({ label: "Track My Orders", path: "/orders", type: "order" });
+          suggestedActions.push({ label: "View Wishlist", path: "/wishlist", type: "wishlist" });
+        }
+      } else if (name === "search_products") {
+        suggestedActions.push({ label: "Explore Trending", path: "/trending", type: "trending" });
+      }
+
+      // Filter product cards to only items mentioned in text
+      if (Array.isArray(toolResult) && toolResult.length > 0 && toolResult[0].name) {
+        filteredData = toolResult.filter(product => 
+          finalBotText.toLowerCase().includes(product.name.toLowerCase())
+        );
+      } else if (typeof toolResult === 'object' && toolResult !== null) {
+        // If it's an object (Admin analytics), merge the actions into it
+        filteredData = { ...toolResult, suggestedActions };
+      }
+
       return { 
-        text: finalParts.map(p => p.text).join("\n\n"), 
-        data: toolResult 
+        text: finalBotText, 
+        data: filteredData, // Only products mentioned in the recommendation will show cards
+        suggestedActions: suggestedActions.length > 0 ? suggestedActions : undefined
       };
     }
 
@@ -306,8 +350,8 @@ export const verifyAndRegister = functions.onCall({ region: REGION }, async (req
     displayName: name, 
     role: "customer", 
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    cart: [], // Added from Code 1
-    wishlist: [] // Added from Code 1
+    cart: [],
+    wishlist: []
   });
   return { success: true };
 });
@@ -362,7 +406,7 @@ export const checkAbandonedCarts = scheduler.onSchedule({
   }
 });
 
-// --- 3. BIRTHDAYS (From Code 2) ---
+// --- 3. BIRTHDAYS ---
 export const sendBirthdayWishes = scheduler.onSchedule({ 
   schedule: "0 9 * * *", 
   region: REGION
@@ -407,7 +451,7 @@ export const onOrderCreated = firestore.onDocumentCreated({
   await batch.commit();
   console.log(`Inventory successfully adjusted for order ${event.params.orderId}`);
 
-  // --- EMAIL NOTIFICATION with Recommendations (Enhanced from both) ---
+  // --- EMAIL NOTIFICATION with Recommendations ---
   const category = orderData.items[0]?.category || "Educational";
   const recs = await db.collection("products").where("category", "==", category).limit(5).get();
   const filteredRecs = recs.docs
@@ -491,7 +535,7 @@ export const onImageUpload = storage.onObjectFinalized({ region: REGION }, async
   await Promise.all([fs.promises.unlink(tempPath), fs.promises.unlink(webpPath)]); 
 });
 
-// --- 7. NEWSLETTER (From Code 2) ---
+// --- 7. NEWSLETTER ---
 export const pushNewsletter = functions.onCall({ region: REGION }, async (req) => {
   const snapshot = await db.collection("subscribers").get();
   const emails = snapshot.docs.map(d => d.data().email);
@@ -520,7 +564,7 @@ export const onSubscriberCreated = firestore.onDocumentCreated({
   });
 });
 
-// --- 8. REVIEW MODERATION (Enhanced from Code 2) ---
+// --- 8. REVIEW MODERATION (Enhanced with AI learning) ---
 export const onReviewCreated = firestore.onDocumentCreated({
   document: "reviews/{reviewId}",
   region: REGION

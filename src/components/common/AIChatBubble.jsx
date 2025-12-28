@@ -1,13 +1,23 @@
 import { motion } from 'framer-motion';
-import { Star, User, ShoppingBag, Package, TrendingUp, AlertCircle, Sparkles } from 'lucide-react';
+import { 
+  User, ShoppingBag, TrendingUp, AlertCircle, Sparkles, 
+  ChevronRight, Heart, Package, Star 
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 export default function AIChatBubble({ message }) {
   const isAI = message.role === 'model';
-  // Standardize data access from the backend response
   const data = message.data;
+
+  // Icon mapping for dynamic action chips
+  const actionIcons = {
+    order: <Package size={14} />,
+    wishlist: <Heart size={14} />,
+    trending: <TrendingUp size={14} />,
+    default: <Star size={14} />
+  };
 
   return (
     <motion.div
@@ -16,7 +26,7 @@ export default function AIChatBubble({ message }) {
       className={`flex w-full mb-6 ${isAI ? 'justify-start' : 'justify-end'}`}
     >
       <div className={`flex max-w-[95%] sm:max-w-[85%] ${isAI ? 'flex-row' : 'flex-row-reverse'}`}>
-        {/* Avatar Section */}
+        {/* Avatar */}
         <div className={`flex-shrink-0 mt-1 ${isAI ? 'mr-3' : 'ml-3'}`}>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm 
             ${isAI ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
@@ -26,74 +36,82 @@ export default function AIChatBubble({ message }) {
 
         {/* Content Wrapper */}
         <div className="flex flex-col space-y-3 overflow-hidden">
-          {/* Main Message Bubble */}
           <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm overflow-x-auto
             ${isAI 
               ? 'bg-white border border-gray-100 text-gray-800 rounded-tl-none' 
-              : 'bg-primary text-white rounded-tr-none'}`}>
+              : 'bg-indigo-600 text-white rounded-tr-none'}`}>
             
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
-              className="prose prose-sm max-w-none 
+              className={`prose prose-sm max-w-none ${!isAI && 'prose-invert'}
                 prose-p:leading-relaxed prose-p:my-1
                 prose-table:my-4 prose-table:w-full prose-table:border-collapse
-                prose-th:bg-gray-50 prose-th:text-gray-600 prose-th:font-black prose-th:uppercase prose-th:text-[10px] prose-th:tracking-wider prose-th:p-2 prose-th:border prose-th:border-gray-100
+                prose-th:bg-gray-50 prose-th:text-gray-600 prose-th:font-black prose-th:uppercase prose-th:text-[10px] prose-th:p-2 prose-th:border prose-th:border-gray-100
                 prose-td:p-2 prose-td:text-[11px] prose-td:border prose-td:border-gray-100 prose-td:text-gray-600
-                prose-strong:text-indigo-600 prose-strong:font-black"
+                prose-strong:text-indigo-600 prose-strong:font-black`}
               components={{
-                // Custom table wrapper for horizontal scrolling on mobile
                 table: ({node, ...props}) => (
                   <div className="overflow-x-auto my-3 rounded-xl border border-gray-100 shadow-inner bg-gray-50/30">
                     <table className="min-w-full divide-y divide-gray-200" {...props} />
                   </div>
                 ),
-                // Ensure links in text don't break layout
                 a: ({node, ...props}) => <a className="text-indigo-600 hover:underline font-bold" {...props} />
               }}
             >
-              {/* Added a safeguard to handle potential spacing issues from raw AI text */}
               {message.text?.replace(/\\n/g, '\n')}
             </ReactMarkdown>
           </div>
 
-          {/* AI Specialized Data Rendering (Visual Cards) */}
+          {/* AI Specialized Data Rendering (Visual Cards & ACTION CHIPS) */}
           {isAI && data && (
             <div className="pt-1 flex flex-wrap gap-3">
               
-              {/* ADMIN: Total Revenue Visual Card */}
-              {(data.isAdmin || data.isAdminConsole) && data.totalRevenue !== undefined && (
-                <div className="w-full bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-lg shadow-emerald-100 animate-in fade-in slide-in-from-bottom-2">
-                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Platform Analytics</span>
-                    <TrendingUp size={16} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase opacity-70">Total Revenue</span>
-                    <h3 className="text-2xl font-black">₹{data.totalRevenue.toLocaleString()}</h3>
-                  </div>
+              {/* NEW: DYNAMIC ACTION CHIPS (Suggested by AI) */}
+              {data.suggestedActions && data.suggestedActions.length > 0 && (
+                <div className="w-full flex flex-wrap gap-2 mb-1">
+                  {data.suggestedActions.map((action, idx) => (
+                    <Link
+                      key={idx}
+                      to={action.path}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all active:scale-95 group"
+                    >
+                      {actionIcons[action.type] || actionIcons.default}
+                      {action.label}
+                      <ChevronRight size={10} className="opacity-50 group-hover:translate-x-0.5 transition-transform" />
+                    </Link>
+                  ))}
                 </div>
               )}
 
-              {/* ADMIN/SHARED: Low Stock Alerts */}
+              {/* ADMIN: Total Revenue Card */}
+              {(data.isAdmin || data.isAdminConsole) && data.totalRevenue !== undefined && (
+                <div className="w-full bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-lg shadow-emerald-100">
+                   <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Marketplace Analytics</span>
+                    <TrendingUp size={16} />
+                  </div>
+                  <h3 className="text-2xl font-black">₹{data.totalRevenue.toLocaleString()}</h3>
+                </div>
+              )}
+
+              {/* LOW STOCK ALERTS */}
               {data.lowStockItems && data.lowStockItems.length > 0 && (
-                <div className="w-full bg-orange-50 border border-orange-100 rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2">
+                <div className="w-full bg-orange-50 border border-orange-100 rounded-2xl p-4">
                   <h4 className="text-xs font-black text-orange-700 mb-3 flex items-center gap-2 uppercase tracking-tight">
-                    <AlertCircle size={14} /> Inventory Shortage Alerts
+                    <AlertCircle size={14} /> Inventory Alerts
                   </h4>
                   <div className="space-y-2">
                     {data.lowStockItems.map((item, i) => (
                       <div key={i} className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-orange-50 shadow-sm">
                         <span className="text-[11px] font-bold text-gray-800">{item.name}</span>
-                        <span className="text-[10px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-full">
-                          {item.stock} left
-                        </span>
+                        <span className="text-[10px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-full">{item.stock} left</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* PRODUCT CARDS: (Automatic Suggestions) */}
+              {/* PRODUCT CARDS */}
               {Array.isArray(data) && data.map((item) => (
                 <Link 
                   key={item.id} 

@@ -23,7 +23,11 @@ service cloud.firestore {
 
     // ORDERS: Users see own, Admins see all
     match /orders/{orderId} {
-      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if request.auth != null && (
+        resource.data.user_id == request.auth.uid || 
+        resource.data.userId == request.auth.uid || 
+        isAdmin()
+      );
       allow create: if request.auth != null;
       allow update: if isAdmin();
     }
@@ -37,17 +41,19 @@ service cloud.firestore {
     // SUBSCRIBERS: Admin only
     match /subscribers/{subId} {
       allow read, write: if isAdmin();
-      allow create: if true; // Allow public newsletter signup
+      allow create: if true; 
     }
 
-    // SETTINGS: Admin only (Required for AI Moderation settings)
+    // SETTINGS: Admin full control, Public read for CATEGORIES only
     match /settings/{settingId} {
-      allow read, write: if isAdmin();
+      // FIXED: Allow everyone to read the 'categories' document for the Navbar/Shop
+      allow read: if settingId == 'categories' || isAdmin();
+      allow write: if isAdmin();
     }
     
-    // AI LOGS/OTP: Internal use (Strictly Admin or specific UID)
+    // AI LOGS/OTP: Internal use
     match /otp_requests/{email} {
-      allow read, write: if false; // Only accessible via Cloud Functions (Admin SDK)
+      allow read, write: if false; 
     }
   }
 }

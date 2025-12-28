@@ -24,7 +24,7 @@ import Profile from './pages/auth/Profile';
 import Favorites from './pages/shop/Favorites';
 import SearchPage from './pages/shop/SearchPage';
 
-// AI Pages (New)
+// AI Pages
 const AIChat = lazy(() => import('./pages/shop/AIChat'));
 const AIConsole = lazy(() => import('./pages/admin/AIConsole'));
 
@@ -63,14 +63,14 @@ export const ROUTE_MAP = {
   CHECKOUT: '/Q0hLSDI0',
   SUCCESS: '/U0NTUzI0',
   TRACK: '/VFJLSTIONjQ',
+  // ADDED: New obfuscated route for specific order details
+  ORDER_DETAILS: '/T1JERFIyNA', 
   ADMIN: '/QURNSTIONjQ',
-  // NEW: Obfuscated AI Routes
   AI_CHAT: '/QUlBU1NU',
   AI_CONSOLE: '/QUlDTlNM'
 };
 
 // --- ROUTE GUARDS ---
-
 function PublicOnlyRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -93,9 +93,7 @@ function RouteTransitionHandler({ setLoading }) {
   const location = useLocation();
   useEffect(() => {
     setLoading(true);
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 800);
+    const timer = setTimeout(() => { setLoading(false); }, 800);
     return () => clearTimeout(timer);
   }, [location, setLoading]);
   return null; 
@@ -108,7 +106,6 @@ function AnimatedRoutes({ setPageLoading }) {
     <AnimatePresence mode="wait">
       <Suspense fallback={<LoadingScreen2 />}>
         <Routes location={location} key={location.pathname}>
-          {/* Public Layout */}
           <Route path="/" element={<PublicLayout />}>
             <Route index element={<Home />} />
             <Route path={ROUTE_MAP.SHOP.substring(1)} element={<Shop />} />
@@ -125,7 +122,9 @@ function AnimatedRoutes({ setPageLoading }) {
             <Route path={ROUTE_MAP.CHECKOUT.substring(1)} element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
             <Route path={ROUTE_MAP.SUCCESS.substring(1)} element={<OrderSuccess />} />
             
-            {/* NEW: Personalized Customer AI Chat */}
+            {/* FIXED: Added TrackOrder route for specific order IDs */}
+            <Route path={`${ROUTE_MAP.ORDER_DETAILS.substring(1)}/:orderId`} element={<ProtectedRoute><TrackOrder /></ProtectedRoute>} />
+            
             <Route path={ROUTE_MAP.AI_CHAT.substring(1)} element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
 
             <Route path="track-order" element={<TrackOrder />} />
@@ -136,12 +135,9 @@ function AnimatedRoutes({ setPageLoading }) {
             <Route path="terms" element={<Terms />} />
           </Route>
 
-          {/* Admin Routes */}
           <Route path={ROUTE_MAP.ADMIN.substring(1)} element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<Dashboard />} />
-            {/* NEW: Admin AI Analytics Console */}
             <Route path="ai-console" element={<AIConsole />} />
-            
             <Route path="inventory" element={<Inventory />} />
             <Route path="orders" element={<Orders />} />
             <Route path="users" element={<Users />} />

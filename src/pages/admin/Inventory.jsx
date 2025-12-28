@@ -1,15 +1,22 @@
 // Filename: src/pages/admin/Inventory.jsx
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Pencil, Package, X, Upload, Loader2, AlertCircle } from 'lucide-react';
+import { 
+  Plus, Trash2, Pencil, Package, X, Upload, 
+  Loader2, AlertCircle, Settings2, Save 
+} from 'lucide-react';
 import { firestoreService } from '../../services/db';
-import { storage } from '../../services/firebase';
+import { storage, db } from '../../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 export default function Inventory() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]); // Dynamic categories state
+  const [newCatName, setNewCatName] = useState('');
   const [loading, setLoading] = useState(true);
   
   const [isAdding, setIsAdding] = useState(false);
+  const [showCatManager, setShowCatManager] = useState(false); // Toggle Category Manager
   const [editingId, setEditingId] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [imageFile, setImageFile] = useState(null);
@@ -18,25 +25,71 @@ export default function Inventory() {
   const [formData, setFormData] = useState({
     name: '',
     price: '',
-    category: 'educational',
+    category: '', // Starts empty to force selection from dynamic list
     description: '',
     image: '',
-    stockCount: '', // NEW: Integrated with Low Stock Alerts
+    stockCount: '',
     isTrending: false
   });
 
   useEffect(() => {
-    fetchProducts();
+    const initData = async () => {
+      await Promise.all([fetchProducts(), fetchCategories()]);
+      setLoading(false);
+    };
+    initData();
   }, []);
 
   const fetchProducts = async () => {
+    const data = await firestoreService.getProducts();
+    setProducts(data || []);
+  };
+
+  // NEW: Fetch categories from a dedicated settings document
+  const fetchCategories = async () => {
     try {
-      const data = await firestoreService.getProducts();
-      setProducts(data || []);
+      const docRef = doc(db, "settings", "categories");
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const catList = docSnap.data().list || [];
+        setCategories(catList);
+        if (catList.length > 0 && !formData.category) {
+            setFormData(prev => ({ ...prev, category: catList[0] }));
+        }
+      } else {
+        // Initialize with defaults if doesn't exist
+        const defaults = ["educational", "creative", "action", "plushies"];
+        await setDoc(docRef, { list: defaults });
+        setCategories(defaults);
+      }
     } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching categories:", err);
+    }
+  };
+
+  // NEW: Add a new category to Firestore
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    const catValue = newCatName.toLowerCase().trim();
+    try {
+      const docRef = doc(db, "settings", "categories");
+      await updateDoc(docRef, { list: arrayUnion(catValue) });
+      setCategories(prev => [...prev, catValue]);
+      setNewCatName('');
+    } catch (err) {
+      alert("Error adding category");
+    }
+  };
+
+  // NEW: Remove a category from Firestore
+  const handleRemoveCategory = async (cat) => {
+    if (!confirm(`Remove "${cat}"? Products already assigned to this will remain unchanged.`)) return;
+    try {
+      const docRef = doc(db, "settings", "categories");
+      await updateDoc(docRef, { list: arrayRemove(cat) });
+      setCategories(prev => prev.filter(c => c !== cat));
+    } catch (err) {
+      alert("Error removing category");
     }
   };
 
@@ -60,23 +113,19 @@ export default function Inventory() {
 
     try {
       let imageUrl = formData.image;
-      if (imageFile) {
-        imageUrl = await uploadImage(imageFile);
-      }
+      if (imageFile) imageUrl = await uploadImage(imageFile);
 
       const finalData = {
         ...formData,
         price: parseFloat(formData.price),
-        stockCount: parseInt(formData.stockCount) || 0, // NEW
+        stockCount: parseInt(formData.stockCount) || 0,
         image: imageUrl
       };
 
       if (editingId) {
         await firestoreService.updateProduct(editingId, finalData);
-        alert("Product updated successfully!");
       } else {
         await firestoreService.addProduct(finalData);
-        alert("Product added to cloud inventory!");
       }
 
       resetForm();
@@ -94,7 +143,6 @@ export default function Inventory() {
     try {
       await firestoreService.deleteProduct(id);
       setProducts(prev => prev.filter(p => p.id !== id));
-      if (editingId === id) resetForm();
     } catch (err) {
       alert("Failed to delete product.");
     }
@@ -109,7 +157,7 @@ export default function Inventory() {
       category: product.category,
       description: product.description || '',
       image: product.image,
-      stockCount: product.stockCount || 0, // NEW
+      stockCount: product.stockCount || 0,
       isTrending: !!product.isTrending
     });
     setImagePreview(product.image);
@@ -121,7 +169,7 @@ export default function Inventory() {
     setEditingId(null);
     setImageFile(null);
     setImagePreview('');
-    setFormData({ name: '', price: '', category: 'educational', description: '', image: '', stockCount: '', isTrending: false });
+    setFormData({ name: '', price: '', category: categories[0] || '', description: '', image: '', stockCount: '', isTrending: false });
   };
 
   if (loading) return (
@@ -140,15 +188,57 @@ export default function Inventory() {
             </div>
             <h1 className="text-2xl font-extrabold text-gray-900">Cloud Inventory</h1>
         </div>
-        <button 
-          onClick={() => isAdding ? resetForm() : setIsAdding(true)}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold shadow-lg transition-all ${
-            isAdding ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-          }`}
-        >
-          {isAdding ? <><X className="w-5 h-5" /> Cancel</> : <><Plus className="w-5 h-5" /> Add Toy</>}
-        </button>
+        <div className="flex gap-3">
+            <button 
+                onClick={() => setShowCatManager(!showCatManager)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-white border border-gray-200 text-gray-600 shadow-sm hover:bg-gray-50 transition-all"
+            >
+                <Settings2 className="w-4 h-4" /> Categories
+            </button>
+            <button 
+                onClick={() => isAdding ? resetForm() : setIsAdding(true)}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold shadow-lg transition-all ${
+                    isAdding ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }`}
+            >
+                {isAdding ? <><X className="w-5 h-5" /> Cancel</> : <><Plus className="w-5 h-5" /> Add Toy</>}
+            </button>
+        </div>
       </div>
+
+      {/* --- CATEGORY MANAGER DRAWER --- */}
+      {showCatManager && (
+        <div className="bg-slate-900 text-white p-6 rounded-3xl mb-8 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="font-black uppercase tracking-widest text-xs text-indigo-400">Manage Store Categories</h3>
+                <button onClick={() => setShowCatManager(false)}><X size={18}/></button>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-6">
+                {categories.map(cat => (
+                    <div key={cat} className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700 group">
+                        <span className="text-xs font-bold capitalize">{cat}</span>
+                        <button onClick={() => handleRemoveCategory(cat)} className="text-slate-500 hover:text-red-400 transition-colors">
+                            <X size={14} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+            <div className="flex gap-2">
+                <input 
+                    placeholder="New category name..."
+                    className="flex-1 bg-slate-800 border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                />
+                <button 
+                    onClick={handleAddCategory}
+                    className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl text-xs font-black uppercase transition-all"
+                >
+                    Add
+                </button>
+            </div>
+        </div>
+      )}
 
       {isAdding && (
         <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 mb-10 animate-in fade-in slide-in-from-top-4 duration-300">
@@ -197,12 +287,13 @@ export default function Inventory() {
               
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
-                <select className="w-full p-3 rounded-xl border border-gray-200 outline-none bg-white"
+                {/* DYNAMIC CATEGORY SELECT */}
+                <select className="w-full p-3 rounded-xl border border-gray-200 outline-none bg-white capitalize font-bold text-gray-700"
                   value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                  <option value="educational">Educational</option>
-                  <option value="creative">Creative</option>
-                  <option value="action">Action Figures</option>
-                  <option value="plushies">Plushies</option>
+                  <option value="" disabled>Select a category</option>
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
               
@@ -247,7 +338,7 @@ export default function Inventory() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {products.map(product => {
-                const isLowStock = product.stockCount < 5; // NEW: Visual match for backend logic
+                const isLowStock = product.stockCount < 5; 
                 
                 return (
                   <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
@@ -256,14 +347,14 @@ export default function Inventory() {
                       <span className="font-bold text-gray-900">{product.name}</span>
                     </td>
                     <td className="p-5 text-gray-600 font-bold">₹{product.price.toLocaleString()}</td>
-                    <td className="p-5">
+                    <td className="p-5 text-center">
                       <div className="flex flex-col items-center gap-1">
                         <span className={`font-black text-sm ${isLowStock ? 'text-red-500' : 'text-gray-700'}`}>
                           {product.stockCount}
                         </span>
                         {isLowStock && (
                           <div className="flex items-center gap-1 text-[8px] font-black text-red-400 uppercase animate-pulse">
-                            <AlertCircle className="w-2.5 h-2.5" /> Low Stock
+                            <AlertCircle className="w-2.5 h-2.5" /> Low
                           </div>
                         )}
                       </div>
