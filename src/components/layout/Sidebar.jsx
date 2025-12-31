@@ -10,11 +10,13 @@ import {
   MessageSquare,
   Mail,
   ShieldCheck,
-  Sparkles // Added for AI Console
+  Sparkles,
+  X // Added for mobile close button
 } from 'lucide-react';
 import { ROUTE_MAP } from '../../App';
 
-export default function Sidebar() {
+// NEW: Accept an optional onClose prop for mobile responsiveness
+export default function Sidebar({ onClose }) {
   const { logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -26,7 +28,6 @@ export default function Sidebar() {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Overview', path: ROUTE_MAP.ADMIN },
-    // NEW: AI Console for Global Analytics
     { 
       icon: Sparkles, 
       label: 'AI Console', 
@@ -42,20 +43,33 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 fixed h-full z-20 hidden md:flex flex-col">
-      <div className="p-6 flex items-center gap-3 border-b border-gray-100">
-          <img src="/artemon_joy_logo.png" alt="Logo" className="w-8 h-8 rounded-full border border-gray-200" />
-          <span className="font-extrabold text-xl text-gray-800 tracking-tight">Artemon Admin</span>
+    /* FIXED: Removed 'hidden' class to allow AdminLayout to control visibility */
+    <aside className="w-full md:w-64 bg-white border-r border-gray-200 h-full flex flex-col shadow-xl md:shadow-none">
+      <div className="p-6 flex items-center justify-between border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <img src="/artemon_joy_logo.png" alt="Logo" className="w-8 h-8 rounded-full border border-gray-200" />
+            <span className="font-extrabold text-xl text-gray-800 tracking-tight">Artemon Admin</span>
+          </div>
+
+          {/* MOBILE ONLY: Close button */}
+          {onClose && (
+            <button 
+              onClick={onClose}
+              className="p-2 md:hidden text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
+            >
+              <X size={20} />
+            </button>
+          )}
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link 
               key={item.path} 
               to={item.path}
-              className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+              className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all active:scale-[0.98] ${
                 isActive 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' 
                   : 'text-gray-500 hover:bg-gray-50 hover:text-indigo-600'
@@ -75,10 +89,10 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-4 border-t border-gray-100 mt-auto">
         <button 
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 w-full transition-colors"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 w-full transition-colors active:scale-95"
         >
           <LogOut className="w-5 h-5" />
           Sign Out

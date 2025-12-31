@@ -24,7 +24,7 @@ import Profile from './pages/auth/Profile';
 import Favorites from './pages/shop/Favorites';
 import SearchPage from './pages/shop/SearchPage';
 
-// AI Pages
+// AI Pages (Lazy Loaded for performance)
 const AIChat = lazy(() => import('./pages/shop/AIChat'));
 const AIConsole = lazy(() => import('./pages/admin/AIConsole'));
 
@@ -42,7 +42,7 @@ import {
   TrackOrder, ShippingInfo, Returns, FAQ, Privacy, Terms 
 } from './pages/support/SupportPages';
 
-// Components
+// Global Components
 import ScrollToTop from './components/layout/ScrollToTop';
 import ProductQuickViewModal from './components/product/ProductQuickViewModal';
 import LoadingScreen from './components/layout/LoadingScreen';
@@ -63,7 +63,6 @@ export const ROUTE_MAP = {
   CHECKOUT: '/Q0hLSDI0',
   SUCCESS: '/U0NTUzI0',
   TRACK: '/VFJLSTIONjQ',
-  // ADDED: New obfuscated route for specific order details
   ORDER_DETAILS: '/T1JERFIyNA', 
   ADMIN: '/QURNSTIONjQ',
   AI_CHAT: '/QUlBU1NU',
@@ -89,6 +88,7 @@ function AdminRoute({ children }) {
   return isAdmin ? children : <Navigate to="/" replace />;
 }
 
+// Handles the transition animation state between routes
 function RouteTransitionHandler({ setLoading }) {
   const location = useLocation();
   useEffect(() => {
@@ -99,7 +99,8 @@ function RouteTransitionHandler({ setLoading }) {
   return null; 
 }
 
-function AnimatedRoutes({ setPageLoading }) {
+// Manages animated transitions and lazy loading fallbacks
+function AnimatedRoutes() {
   const location = useLocation();
   
   return (
@@ -122,7 +123,7 @@ function AnimatedRoutes({ setPageLoading }) {
             <Route path={ROUTE_MAP.CHECKOUT.substring(1)} element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
             <Route path={ROUTE_MAP.SUCCESS.substring(1)} element={<OrderSuccess />} />
             
-            {/* FIXED: Added TrackOrder route for specific order IDs */}
+            {/* Dynamic tracking for specific orders */}
             <Route path={`${ROUTE_MAP.ORDER_DETAILS.substring(1)}/:orderId`} element={<ProtectedRoute><TrackOrder /></ProtectedRoute>} />
             
             <Route path={ROUTE_MAP.AI_CHAT.substring(1)} element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
@@ -153,6 +154,7 @@ function AnimatedRoutes({ setPageLoading }) {
   );
 }
 
+// Root Application Component
 function App() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
@@ -160,6 +162,7 @@ function App() {
   useEffect(() => {
     const initApp = async () => {
       try {
+        // Wait for DOM to be ready
         if (document.readyState !== 'complete') {
           await new Promise(resolve => {
              const handler = () => {
@@ -167,9 +170,11 @@ function App() {
                 resolve();
              };
              window.addEventListener('load', handler);
-             setTimeout(resolve, 3000); 
+             setTimeout(resolve, 3000); // Safety timeout
           });
         }
+        
+        // Critical assets preloading
         const preloadImages = ['/artemon_joy_banner.webp', '/artemon_joy_logo.webp'];
         await Promise.all(preloadImages.map(src => {
           return new Promise((resolve) => {
@@ -179,9 +184,11 @@ function App() {
             img.onerror = resolve; 
           });
         }));
+        
+        // Artificial delay for high-end feel during brand reveal
         await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (err) {
-        console.error("Loading error:", err);
+        console.error("Initialization error:", err);
       } finally {
         setInitialLoad(false);
       }
@@ -193,12 +200,22 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <ProductModalProvider>
+          {/* React Router with future flags enabled for stability */}
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            
+            {/* 1. Global Floating Elements */}
             <ScrollToTop />
+            
+            {/* 2. Loading Orchestration */}
             <RouteTransitionHandler setLoading={setPageLoading} />
             <LoadingManager initialLoad={initialLoad} pageLoading={pageLoading} />
-            <AnimatedRoutes setPageLoading={setPageLoading} />
+            
+            {/* 3. Main Content & Routing */}
+            <AnimatedRoutes />
+            
+            {/* 4. Global Modals */}
             <ProductQuickViewModal />
+            
           </Router>
         </ProductModalProvider>
       </CartProvider>
@@ -206,10 +223,14 @@ function App() {
   );
 }
 
+// Logic to determine which loading screen to show based on application state
 function LoadingManager({ initialLoad, pageLoading }) {
     const location = useLocation();
     const isHome = location.pathname === '/';
+    
+    // Solid loader for app start or returning home
     const showSolidLoader = initialLoad || (pageLoading && isHome);
+    // Blurry loader for internal page transitions
     const showBlurryLoader = !initialLoad && pageLoading && !isHome;
 
     if (showSolidLoader) return <div className="fixed inset-0 z-[9999]"><LoadingScreen /></div>;

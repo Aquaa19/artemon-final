@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  // Broadening content paths to prevent CSS purging in production
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -10,23 +9,24 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#6366f1', // Indigo 500
-          hover: '#4f46e5',   // Indigo 600
-          light: '#e0e7ff',   // Indigo 100
+          DEFAULT: '#2563eb',    // Changed to match index.css
+          hover: '#1d4ed8',      // Changed to match index.css
+          light: '#eff6ff',      // Changed to match index.css
+          500: '#2563eb',        // Add this for stroke-primary
         },
         secondary: {
-          DEFAULT: '#f59e0b', // Amber 500
-          hover: '#d97706',   // Amber 600
-          light: '#fef3c7',   // Amber 100
+          DEFAULT: '#f59e0b',
+          hover: '#d97706',
+          light: '#fffbeb',
         },
         accent: {
-          DEFAULT: '#ec4899', // Pink 500
-          hover: '#db2777',   // Pink 600
-          light: '#fce7f3',   // Pink 100
+          DEFAULT: '#ec4899',
+          hover: '#db2777',
+          light: '#fdf2f8',
         },
         surface: {
           DEFAULT: '#ffffff',
-          muted: '#f9fafb',   // Gray 50
+          muted: '#f8fafb',
         }
       },
       fontFamily: {
@@ -40,7 +40,16 @@ export default {
       },
       boxShadow: {
         'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-        'glow': '0 0 15px rgba(99, 102, 241, 0.3)',
+        'glow': '0 0 15px rgba(37, 99, 235, 0.3)', // Updated to match blue
+      },
+      // Add stroke colors
+      stroke: {
+        primary: '#2563eb',
+        'primary-light': '#eff6ff',
+      },
+      // Add fill colors if needed
+      fill: {
+        primary: '#2563eb',
       }
     },
   },
